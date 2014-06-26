@@ -1,0 +1,6 @@
+2014-06-26 14:47:01 -  - exec CUpdateClientPartner::GetUpdatesList
+2014-06-26 14:47:01 -  - exec CUpdateClientPartner::__CollectRequestData
+2014-06-26 14:47:01 -  - utf=Y&lang=ru&stable=Y&CANGZIP=Y&SUPD_DBS=MYSQL&XE=N&CLIENT_SITE=books&LICENSE_KEY=X&SUPD_STS=1&SUPD_URS=0&SUPD_URSA=1&TYPENC=D&CLIENT_PHPVER=5.3.1&dbv=5.1.40&instm=main%2C14.5.0%2CY%3Bbitrix.sitecorporate%2C14.5.0%2CN%3Bbitrix.siteinfoportal%2C14.5.0%2CN%3Bbitrix.sitepersonal%2C14.5.0%2CN%3Bbitrixcloud%2C14.0.4%2CN%3Bblog%2C14.5.0%2CN%3Bclouds%2C14.5.0%2CN%3Bcompression%2C14.0.0%2CN%3Bfileman%2C14.5.0%2CN%3Bform%2C14.0.1%2CN%3Bforum%2C14.5.1%2CN%3Bhighloadblock%2C14.0.6%2CN%3Biblock%2C14.5.0%2CN%3Bmobileapp%2C14.0.3%2CN%3Bperfmon%2C14.0.1%2CN%3Bphotogallery%2C14.5.1%2CN%3Bscale%2C14.5.0%2CN%3Bsearch%2C14.5.0%2CN%3Bsecurity%2C14.5.0%2CN%3Bseo%2C14.5.0%2CN%3Bsocialservices%2C14.0.4%2CN%3Bsubscribe%2C14.5.0%2CN%3Bvote%2C14.0.2%2CN&reqm=bitrix.sitecorporate%2Cbitrix.siteinfoportal%2Cbitrix.sitepersonal&fullmoduleinfo=Y
+2014-06-26 14:47:01 -  - exec CUpdateClientPartner::GetHTTPPage
+2014-06-26 14:47:01 -  - TIME GetUpdatesList(request) 0.551 sec
+2014-06-26 14:47:01 -  - exec CUpdateClientPartner::ParseServerData

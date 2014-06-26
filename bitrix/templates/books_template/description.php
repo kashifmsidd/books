@@ -1,0 +1,1 @@
+<?$arTemplate = Array("NAME"=>"books template", "DESCRIPTION"=>"пробный шаблон");?>
