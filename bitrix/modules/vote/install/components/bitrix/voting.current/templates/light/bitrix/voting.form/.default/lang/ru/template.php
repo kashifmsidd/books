@@ -1,4 +1,4 @@
 <?
-$MESS ['VOTE_SUBMIT_BUTTON'] = "Ãîëîñîâàòü";
-$MESS ['VOTE_RESULTS'] = "Ðåçóëüòàò";
+$MESS ['VOTE_SUBMIT_BUTTON'] = "Ð“Ð¾Ð»Ð¾ÑÐ¾Ð²Ð°Ñ‚ÑŒ";
+$MESS ['VOTE_RESULTS'] = "Ð ÐµÐ·ÑƒÐ»ÑŒÑ‚Ð°Ñ‚";
 ?>

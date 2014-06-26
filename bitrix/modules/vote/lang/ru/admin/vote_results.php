@@ -1,10 +1,10 @@
 <?
-$MESS ['VOTE_PAGE_TITLE'] = "Ðåçóëüòàòû îïðîñà # #ID#";
-$MESS ['VOTE_VOTE_LIST'] = "Ñïèñîê îïðîñîâ";
-$MESS ['VOTE_TEMPLATE'] = "Øàáëîí äëÿ ïîêàçà ðåçóëüòàòîâ:";
-$MESS ['VOTE_QUESTIONS'] = "Âîïðîñû";
-$MESS ['VOTE_QUESTIONS_ADD'] = "Äîáàâèòü âîïðîñ";
-$MESS ['VOTE_PREVIEW'] = "Ôîðìà îïðîñà";
-$MESS ['VOTE_NOT_FOUND'] = "Íåâåðíûé ID îïðîñà";
-$MESS ['VOTE_SAVE'] = "Ñîõðàíèòü";
+$MESS ['VOTE_PAGE_TITLE'] = "Ð ÐµÐ·ÑƒÐ»ÑŒÑ‚Ð°Ñ‚Ñ‹ Ð¾Ð¿Ñ€Ð¾ÑÐ° # #ID#";
+$MESS ['VOTE_VOTE_LIST'] = "Ð¡Ð¿Ð¸ÑÐ¾Ðº Ð¾Ð¿Ñ€Ð¾ÑÐ¾Ð²";
+$MESS ['VOTE_TEMPLATE'] = "Ð¨Ð°Ð±Ð»Ð¾Ð½ Ð´Ð»Ñ Ð¿Ð¾ÐºÐ°Ð·Ð° Ñ€ÐµÐ·ÑƒÐ»ÑŒÑ‚Ð°Ñ‚Ð¾Ð²:";
+$MESS ['VOTE_QUESTIONS'] = "Ð’Ð¾Ð¿Ñ€Ð¾ÑÑ‹";
+$MESS ['VOTE_QUESTIONS_ADD'] = "Ð”Ð¾Ð±Ð°Ð²Ð¸Ñ‚ÑŒ Ð²Ð¾Ð¿Ñ€Ð¾Ñ";
+$MESS ['VOTE_PREVIEW'] = "Ð¤Ð¾Ñ€Ð¼Ð° Ð¾Ð¿Ñ€Ð¾ÑÐ°";
+$MESS ['VOTE_NOT_FOUND'] = "ÐÐµÐ²ÐµÑ€Ð½Ñ‹Ð¹ ID Ð¾Ð¿Ñ€Ð¾ÑÐ°";
+$MESS ['VOTE_SAVE'] = "Ð¡Ð¾Ñ…Ñ€Ð°Ð½Ð¸Ñ‚ÑŒ";
 ?>

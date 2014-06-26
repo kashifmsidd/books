@@ -1,25 +1,25 @@
 <?
-$MESS["FLT_WORDS"] = "Ñëîâî";
-$MESS["FLT_PATTERN"] = "Øàáëîí";
-$MESS["FLT_REPLACEMENT"] = "Çàìåíà";
-$MESS["FLT_DESCRIPTION"] = "Îïèñàíèå";
-$MESS["FLT_PATTERN_CREATE"] = "Òèï ñîçäàíèÿ øàáëîíà";
-$MESS["FLT_USE_IT"] = "Àêòèâåí";
-$MESS["FLT_ACT_ADD"] = "Äîáàâèòü";
-$MESS["FLT_ACT_EDIT"] = "Èçìåíèòü";
-$MESS["FLT_ACT_DEL"] = "Óäàëèòü";
-$MESS["FLT_ACT_GEN"] = "Ñãåíåðèðîâàòü øàáëîí";
-$MESS["FLT_ACT_GEN_CONFIRM"] = "&nbsp;èñïîëüçóÿ&nbsp;";
-$MESS["FLT_ACT_USE_IT_Y"] = "Äà";
-$MESS["FLT_ACT_USE_IT_N"] = "Íåò";
-$MESS["FLT_ACT_DEL_CONFIRM"] = "Âû äåéñòâèòåëüíî õoòèòå óäàëèòü çàïèñü?";
-$MESS["FLT_NOT_UPDATE"] = "Èçìåíåíèÿ íå ñîõðàíåíû.";
-$MESS["FLT_NOT_DICTIONARY"] = "Íå óêàçàí ñëîâàðü.";
-$MESS["FLT_TITLE"] = "Ñëîâàðü ñëîâ";
-$MESS["FLT_TITLE_NAV"] = "Ñëîâà";
+$MESS["FLT_WORDS"] = "Ð¡Ð»Ð¾Ð²Ð¾";
+$MESS["FLT_PATTERN"] = "Ð¨Ð°Ð±Ð»Ð¾Ð½";
+$MESS["FLT_REPLACEMENT"] = "Ð—Ð°Ð¼ÐµÐ½Ð°";
+$MESS["FLT_DESCRIPTION"] = "ÐžÐ¿Ð¸ÑÐ°Ð½Ð¸Ðµ";
+$MESS["FLT_PATTERN_CREATE"] = "Ð¢Ð¸Ð¿ ÑÐ¾Ð·Ð´Ð°Ð½Ð¸Ñ ÑˆÐ°Ð±Ð»Ð¾Ð½Ð°";
+$MESS["FLT_USE_IT"] = "ÐÐºÑ‚Ð¸Ð²ÐµÐ½";
+$MESS["FLT_ACT_ADD"] = "Ð”Ð¾Ð±Ð°Ð²Ð¸Ñ‚ÑŒ";
+$MESS["FLT_ACT_EDIT"] = "Ð˜Ð·Ð¼ÐµÐ½Ð¸Ñ‚ÑŒ";
+$MESS["FLT_ACT_DEL"] = "Ð£Ð´Ð°Ð»Ð¸Ñ‚ÑŒ";
+$MESS["FLT_ACT_GEN"] = "Ð¡Ð³ÐµÐ½ÐµÑ€Ð¸Ñ€Ð¾Ð²Ð°Ñ‚ÑŒ ÑˆÐ°Ð±Ð»Ð¾Ð½";
+$MESS["FLT_ACT_GEN_CONFIRM"] = "&nbsp;Ð¸ÑÐ¿Ð¾Ð»ÑŒÐ·ÑƒÑ&nbsp;";
+$MESS["FLT_ACT_USE_IT_Y"] = "Ð”Ð°";
+$MESS["FLT_ACT_USE_IT_N"] = "ÐÐµÑ‚";
+$MESS["FLT_ACT_DEL_CONFIRM"] = "Ð’Ñ‹ Ð´ÐµÐ¹ÑÑ‚Ð²Ð¸Ñ‚ÐµÐ»ÑŒÐ½Ð¾ Ñ…oÑ‚Ð¸Ñ‚Ðµ ÑƒÐ´Ð°Ð»Ð¸Ñ‚ÑŒ Ð·Ð°Ð¿Ð¸ÑÑŒ?";
+$MESS["FLT_NOT_UPDATE"] = "Ð˜Ð·Ð¼ÐµÐ½ÐµÐ½Ð¸Ñ Ð½Ðµ ÑÐ¾Ñ…Ñ€Ð°Ð½ÐµÐ½Ñ‹.";
+$MESS["FLT_NOT_DICTIONARY"] = "ÐÐµ ÑƒÐºÐ°Ð·Ð°Ð½ ÑÐ»Ð¾Ð²Ð°Ñ€ÑŒ.";
+$MESS["FLT_TITLE"] = "Ð¡Ð»Ð¾Ð²Ð°Ñ€ÑŒ ÑÐ»Ð¾Ð²";
+$MESS["FLT_TITLE_NAV"] = "Ð¡Ð»Ð¾Ð²Ð°";
 
-$MESS["FLT_FLT_WORDS"] = "Ñëîâî";
-$MESS["FLT_FLT_TRNSL"] = "Òðàíñëèò";
-$MESS["FLT_FLT_PTTRN"] = "Âûðàæåíèå";
+$MESS["FLT_FLT_WORDS"] = "Ð¡Ð»Ð¾Ð²Ð¾";
+$MESS["FLT_FLT_TRNSL"] = "Ð¢Ñ€Ð°Ð½ÑÐ»Ð¸Ñ‚";
+$MESS["FLT_FLT_PTTRN"] = "Ð’Ñ‹Ñ€Ð°Ð¶ÐµÐ½Ð¸Ðµ";
 
 ?>
