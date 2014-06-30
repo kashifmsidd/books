@@ -2,7 +2,21 @@
 $aMenuLinks = Array(
 	Array(
 		"Главная", 
-		"/main.php", 
+		"/index.php", 
+		Array(), 
+		Array(), 
+		"" 
+	),
+	Array(
+		"Книги", 
+		"/books/", 
+		Array(), 
+		Array(), 
+		"" 
+	),
+	Array(
+		"Авторы", 
+		"/autors/index.php", 
 		Array(), 
 		Array(), 
 		"" 

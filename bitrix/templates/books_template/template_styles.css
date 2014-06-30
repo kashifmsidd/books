@@ -9,12 +9,21 @@ a{
     height: 100%;
     width: 100%;
 }*/
-.Menu {
+div.Menu {
     /*background-color: #D3C2A6;*/
-    /*float: left;
+    float: left;
     height: 100%;
-    /*padding: 70px 0;*/
-    /*width: 300px;*/
+    padding-left: 50px;
+    width: 300px;
+}
+p.MenuActive {
+    font-weight: bold;
+}
+p.Menu {
+    font-weight: normal;
+}
+a.Closed {
+    text-decoration: line-through;
 }
 .Content {
     /*padding-left: 300px;*/
@@ -24,7 +33,7 @@ a{
 }
 p#headIndex{
     color: #7B6442;
-    font-family: Segoe Print;
+    font-family: Georgia;
     font-size: 36px;
     /*margin-left: 40%;*/
     padding: 50px 0 0 0;
@@ -42,7 +51,7 @@ p.Text, span, table, a{
 }
 p.subHead, p.Text, span, table, span.Login, span.Time, a{
     color: #7b6442;
-    font-family: Segoe Print;
+    font-family: Georgia;
 }
 a.Link {
     font-weight: bold;
@@ -72,15 +81,4 @@ span.Login{
 }
 span.Time {
     font-size: 12px;
-}
-div.Quote {
-    padding: 10px 50px;
-}
-p.Quote{
-    font-size: 14px;
-    font-style: italic;
-}
-p.Quote:first-line{
-    font-size: 15px;
-    font-weight: bold;
 }

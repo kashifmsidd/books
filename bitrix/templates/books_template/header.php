@@ -11,5 +11,5 @@
     </div><!--.Header-->
     <div class="Content">
         <div class="Menu">
-            <?$APPLICATION->GetMenuHtml("left", true)?>
+            <? echo $APPLICATION->GetMenuHtml("left", true); ?>
         </div>
