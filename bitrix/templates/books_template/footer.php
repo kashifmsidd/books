@@ -1,4 +1,6 @@
     </div><!--.Content-->
-    <span style="float: right">©Мария Гусева</span>
+    <div class="Footer">
+        <span style="float: right">©Мария Гусева</span>
+    </div><!--.Footer-->
 </body>
 </html>
