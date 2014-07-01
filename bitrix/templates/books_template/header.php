@@ -9,7 +9,7 @@
     <div class="Header">
         <p id="headIndex" align="center">Электронная библиотека</p>
     </div><!--.Header-->
+    <div class="Menu">
+        <? echo $APPLICATION->GetMenuHtml("left", true); ?>
+    </div><!--.Menu-->
     <div class="Content">
-        <div class="Menu">
-            <? echo $APPLICATION->GetMenuHtml("left", true); ?>
-        </div>

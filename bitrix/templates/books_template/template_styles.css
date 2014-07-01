@@ -14,7 +14,7 @@ div.Menu {
     float: left;
     height: 100%;
     padding-left: 50px;
-    width: 300px;
+    width: 200px;
 }
 p.MenuActive {
     font-weight: bold;
@@ -26,7 +26,7 @@ a.Closed {
     text-decoration: line-through;
 }
 .Content {
-    /*padding-left: 300px;*/
+    padding: 0px 20px 0px 250px;
 }
 .Header {
     /*background-color: #D3C2A6;*/
@@ -48,7 +48,12 @@ div.Text {
 /*p.Text:first-letter {
     margin-left: 30px;
 }*/
-p.Text, span, table, a, ul, ol, li{
+div.ListItem {
+    width: 100%;
+    border-radius: 5px;
+    border: 1px solid #7b6442;
+}
+p.Text, span, table, ul, ol, li{
     font-size: 16px;
     margin: 10px;
 }

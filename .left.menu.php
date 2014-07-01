@@ -1,8 +1,8 @@
-<?
+﻿<?
 $aMenuLinks = Array(
 	Array(
 		"Главная", 
-		"/index.php", 
+		"/", 
 		Array(), 
 		Array(), 
 		"" 
@@ -16,7 +16,7 @@ $aMenuLinks = Array(
 	),
 	Array(
 		"Авторы", 
-		"/autors/index.php", 
+		"/autors/", 
 		Array(), 
 		Array(), 
 		"" 
