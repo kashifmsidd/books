@@ -52,6 +52,7 @@ div.ListItem {
     width: 100%;
     border-radius: 5px;
     border: 1px solid #7b6442;
+    margin-bottom: 20px;
 }
 p.Text, span, table, ul, ol, li{
     font-size: 16px;
