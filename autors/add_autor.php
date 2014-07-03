@@ -7,20 +7,19 @@ $autorName = $_POST['autorName'];
 if (isset($_POST['addAutor']) && !empty($autorName)) {
     $autorSearch = getList(1, array('ID'), null, array('UF_NAME'=>$autorName));
     if (!empty($autorSearch)) {
-        $_SESSION['AddAutorMessage'] = "Автор с таким именем уже существует!";
-        Header ("Location: /autors/");
+        $_SESSION['AutorMessage'] = "Автор с таким именем уже существует!";
+        LocalRedirect("/autors/");
+    }
+    $addItem = array('UF_NAME'=>$autorName);
+    $result = addItem(1, $addItem);
+    if ($result->isSuccess()) {
+        $_SESSION['AutorMessage'] = "Автор ".$autorName." добавлен!";
     } else {
-        $addItem = array('UF_NAME'=>$autorName);
-        $result = addItem(1, $addItem);
-        if ($result->isSuccess()) {
-            $_SESSION['AddAutorMessage'] = "Автор ".$autorName." добавлен!";
-        } else {
-            $_SESSION['AddAutorMessage'] = "При добавлении произошла ошибка!";
-        }
+        $_SESSION['AutorMessage'] = "При добавлении произошла ошибка!";
     }
 }
 
-Header ("Location: /autors/");
+LocalRedirect ("/autors/");
 
 //require($_SERVER["DOCUMENT_ROOT"]."/bitrix/footer.php");
 

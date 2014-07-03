@@ -4,8 +4,27 @@ $APPLICATION->SetTitle("Книги");
 ?><p class="subHead">
 	 Список книг
 </p>
+
+    <form name="books" action="" method="post">
+        <div class="ListItem">
+            <p class='Text'><b>Критерий поиска:</b>
+                <select name="searchType">
+                    <option value="searchByTitle">по названию</option>
+                    <option value="searchByAutor">по автору</option>
+                </select>
+                <input type="text" name="searchValue">
+                <input type="submit" name="searchBook" value="Искать книгу"></p>
+            <a href="add_book.php"><p class="Text"><b>Добавить книгу</b></p></a>
+        </div>
+    </form>
+
 <?
 require_once("../block_funcs.php");
+
+if (isset($_SESSION['BookMessage'])) {
+    echo "<p class='Text'>".$_SESSION['BookMessage']."</p>";
+    unset($_SESSION['BookMessage']);
+}
 
 $filter = array();
 
@@ -30,7 +49,10 @@ foreach ($requests as $book) {
         continue;
     }
 
-    echo "<div class='ListItem'><p class='Text'><b>Название:</b> </p><p class='Text' style='padding-left: 100px'>".$book['UF_TITLE']."</p>";
+    $bookIdRequest = "?id_book=".$book['ID'];
+    echo "<div style='float: right'><a href='edit_book.php".$bookIdRequest."'><img src='/bitrix/templates/books_template/images/edit.gif'></a>
+        <a href='del_book.php".$bookIdRequest."'><img src='/bitrix/templates/books_template/images/delete.gif'></a></div>
+        <div class='ListItem'><p class='Text'><b>Название:</b> </p><p class='Text' style='padding-left: 100px'>".$book['UF_TITLE']."</p>";
 
     //$autor_req = getList(3, array('UF_ID_AUTOR'), null, null);
     echo "<p class='Text'><b>Авторы:</b> ";

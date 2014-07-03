@@ -72,4 +72,15 @@
         $entity_requests_data_class = connectToBlock($blockId);
         return $entity_requests_data_class::delete($itemId);
     }
+
+    function addNewBook($title) {
+        $addBook = array('UF_TITLE'=>$title);
+        $result = addItem(2, $addBook);
+        if ($result->isSuccess()) {
+            $_SESSION['BookMessage'] = "Книга ".$title." добавлена!";
+        } else {
+            $_SESSION['BookMessage'] = "При добавлении книги произошла ошибка!";
+        }
+        return $result->getId();
+    }
 ?>
