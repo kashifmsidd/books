@@ -30,28 +30,27 @@ if (isset($_POST['addAutorsToBook'])) {
                 $result = addItem(3, $add);
             }
             LocalRedirect("/books/");
-        } else {
-            $autors = getList(1, array('ID','UF_NAME'), array('UF_NAME'=>'ASC'), null);
-            ?>
-            <form name="addAutors" action="" method="post">
-                <div class="ListItem">
-                    <?
-                        for ($i = 0; $i < $autorCount; $i++) {
-                            echo "<p class='Text'><b>Автор:</b> <select name='autor".$i."'>";
-                            foreach ($autors as $autor) {
-                                echo "<option value='".$autor['ID']."'>".$autor['UF_NAME']."</option>";
-                            }
-                            echo "</select></p>";
-                        }
-                    ?>
-                    <div style="padding: 10px"><input type="submit" name="saveBookInfo" value="Сохранить"></div>
-                    <input type="hidden" name="bookTitle" value="<?=$bookTitle?>">
-                    <input type="hidden" name="autorCount" value="<?=$autorCount?>">
-                    <input type="hidden" name="addAutorsToBook" value="true">
-                </div>
-            </form>
-            <?
         }
+        $autors = getList(1, array('ID','UF_NAME'), array('UF_NAME'=>'ASC'), null);
+        ?>
+        <form name="addAutors" action="" method="post">
+            <div class="ListItem">
+                <?
+                    for ($i = 0; $i < $autorCount; $i++) {
+                        echo "<p class='Text'><b>Автор:</b> <select name='autor".$i."'>";
+                        foreach ($autors as $autor) {
+                            echo "<option value='".$autor['ID']."'>".$autor['UF_NAME']."</option>";
+                        }
+                        echo "</select></p>";
+                    }
+                ?>
+                <div style="padding: 10px"><input type="submit" name="saveBookInfo" value="Сохранить"></div>
+                <input type="hidden" name="bookTitle" value="<?=$bookTitle?>">
+                <input type="hidden" name="autorCount" value="<?=$autorCount?>">
+                <input type="hidden" name="addAutorsToBook" value="true">
+            </div>
+        </form>
+        <?
     } else {
         addNewBook($bookTitle);
         LocalRedirect("/books/");

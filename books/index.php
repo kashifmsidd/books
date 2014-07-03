@@ -39,9 +39,41 @@ if (!empty($searchAutorId)) {
     }
 }
 
+if (isset($_POST['searchBook']) && (!empty($_POST['searchValue']))) {
+    if ($_POST['searchType'] == "searchByTitle") {
+        $bookSearch = $_POST['searchValue'];
+        echo "<p class='Text'>Результат поиска по названию: ".$bookSearch."</p>";
+    } else {
+        $autorName = $_POST['searchValue'];
+        echo "<p class='Text'>Результат поиска по автору: ".$autorName."</p>";
+    }
+}
+
+if (!empty($autorName)) {
+    $autorBooks = array();
+    $requests = getList(1, array('ID','UF_NAME'), null, null);
+
+    foreach ($requests as $autor) {
+        if (substr_count(strtolower($autor['UF_NAME']), strtolower($autorName)) > 0) {
+            $rq = getList(3, array('UF_ID_BOOK'), null, array('UF_ID_AUTOR'=>$autor['ID']));
+            foreach ($rq as $bookItem) {
+                $autorBooks[] = $bookItem['UF_ID_BOOK'];
+            }
+        }
+    }
+}
+
 $requests = getList(2, array('ID','UF_TITLE'), array('UF_TITLE'=>'ASC'), null);
 
 foreach ($requests as $book) {
+    if (!empty($autorName) && !in_array($book["ID"], $autorBooks)) {
+        continue;
+    }
+
+    if (!empty($bookSearch) && (substr_count(strtolower($book['UF_TITLE']), strtolower($bookSearch)) < 1)) {
+        continue;
+    }
+
     $filter['UF_ID_BOOK'] = $book["ID"];
     $autor_req = getList(3, array('UF_ID_AUTOR'), null, $filter);
 

@@ -70,3 +70,7 @@ p.subHead {
     margin-left: 50px;
     font-weight: bold;
 }
+
+input[type="text"] {
+    width: 400px;
+}
