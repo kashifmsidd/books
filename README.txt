@@ -8,5 +8,5 @@
   login: user
   pass: useruser
   
-    login: user2
+  login: user2
   pass: user2user2
