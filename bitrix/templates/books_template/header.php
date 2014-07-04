@@ -15,7 +15,6 @@
         <div class="Auth">
             <?$APPLICATION->IncludeComponent("my_components:system.auth.form","",Array(
                     "REGISTER_URL" => "register.php",
-                    "FORGOT_PASSWORD_URL" => "",
                     "PROFILE_URL" => "profile.php",
                     "SHOW_ERRORS" => "Y",
                 )
