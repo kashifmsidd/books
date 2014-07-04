@@ -12,7 +12,7 @@ $APPLICATION->SetTitle("Книги");
                     <option value="searchByTitle">по названию</option>
                     <option value="searchByAutor">по автору</option>
                 </select>
-                <input type="text" name="searchValue">
+                <input type="text" name="searchValue" class="Text">
                 <input type="submit" name="searchBook" value="Искать книгу"></p>
             <a href="add_book.php"><p class="Text"><b>Добавить книгу</b></p></a>
         </div>

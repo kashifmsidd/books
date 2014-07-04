@@ -1,3 +1,5 @@
+; /* /bitrix/js/main/core/core_popup.js*/
+; /* /bitrix/js/main/core/core_date.js*/
 ; /* /bitrix/js/main/core/core.js*/
 ; /* /bitrix/js/main/core/core_ajax.js*/
 ; /* /bitrix/js/main/session.js*/
@@ -10684,5 +10686,3455 @@ var jsSelectUtils =
 }
 
 /************************************************/
+/* End */
+;
+; /* Start:/bitrix/js/main/core/core_popup.js*/
+;(function(window) {
+
+if (BX.PopupWindowManager)
+	return;
+
+BX.PopupWindowManager =
+{
+	_popups : [],
+	_currentPopup : null,
+
+	create : function(uniquePopupId, bindElement, params)
+	{
+		var index = -1;
+		if ( (index = this._getPopupIndex(uniquePopupId)) !== -1)
+			return this._popups[index];
+
+		var popupWindow = new BX.PopupWindow(uniquePopupId, bindElement, params);
+
+		BX.addCustomEvent(popupWindow, "onPopupShow", BX.delegate(this.onPopupShow, this));
+		BX.addCustomEvent(popupWindow, "onPopupClose", BX.delegate(this.onPopupClose, this));
+		BX.addCustomEvent(popupWindow, "onPopupDestroy", BX.delegate(this.onPopupDestroy, this));
+
+		this._popups.push(popupWindow);
+
+		return popupWindow;
+	},
+
+	onPopupShow : function(popupWindow)
+	{
+		if (this._currentPopup !== null)
+			this._currentPopup.close();
+
+		this._currentPopup = popupWindow;
+	},
+
+	onPopupClose : function(popupWindow)
+	{
+		this._currentPopup = null;
+	},
+
+	onPopupDestroy : function(popupWindow)
+	{
+		var index = -1;
+		if ( (index = this._getPopupIndex(popupWindow.uniquePopupId)) !== -1)
+			this._popups = BX.util.deleteFromArray(this._popups, index);
+	},
+
+	getCurrentPopup : function()
+	{
+		return this._currentPopup;
+	},
+
+	isPopupExists : function(uniquePopupId)
+	{
+		return this._getPopupIndex(uniquePopupId) !== -1
+	},
+
+	_getPopupIndex : function(uniquePopupId)
+	{
+		var index = -1;
+
+		for (var i = 0; i < this._popups.length; i++)
+			if (this._popups[i].uniquePopupId == uniquePopupId)
+				return i;
+
+		return index;
+	}
+};
+
+BX.PopupWindow = function(uniquePopupId, bindElement, params)
+{
+	BX.onCustomEvent("onPopupWindowInit", [uniquePopupId, bindElement, params ]);
+
+	this.uniquePopupId = uniquePopupId;
+	this.params = params || {};
+	this.params.zIndex = parseInt(this.params.zIndex);
+	this.params.zIndex = isNaN(this.params.zIndex) ? 0 : this.params.zIndex;
+	this.buttons = this.params.buttons && BX.type.isArray(this.params.buttons) ? this.params.buttons : [];
+	this.offsetTop = BX.PopupWindow.getOption("offsetTop");
+	this.offsetLeft = BX.PopupWindow.getOption("offsetLeft");
+	this.firstShow = false;
+	this.bordersWidth = 20;
+	this.bindElementPos = null;
+	this.closeIcon = null;
+	this.angle = null;
+	this.overlay = null;
+	this.titleBar = null;
+	this.bindOptions = typeof(this.params.bindOptions) == "object" ? this.params.bindOptions : {};
+	this.isAutoHideBinded = false;
+	this.closeByEsc = !!this.params.closeByEsc;
+	this.isCloseByEscBinded = false;
+
+	this.dragged = false;
+	this.dragPageX = 0;
+	this.dragPageY = 0;
+
+	if (this.params.events)
+	{
+		for (var eventName in this.params.events)
+			BX.addCustomEvent(this, eventName, this.params.events[eventName]);
+	}
+
+	this.popupContainer = document.createElement("DIV");
+
+	BX.adjust(this.popupContainer, {
+		props : {
+			id : uniquePopupId
+		},
+		style : {
+			zIndex: this.getZindex(),
+			position: "absolute",
+			display: "none",
+			top: "0px",
+			left: "0px"
+		}
+	});
+
+	var tableClassName = "popup-window";
+	if (params.lightShadow)
+		tableClassName += " popup-window-light";
+	if (params.titleBar)
+		tableClassName += params.lightShadow ? " popup-window-titlebar-light" : " popup-window-titlebar";
+	if (params.className && BX.type.isNotEmptyString(params.className))
+		tableClassName += " " + params.className;
+
+	this.popupContainer.innerHTML = ['<table class="', tableClassName,'" cellspacing="0"> \
+		<tr class="popup-window-top-row"> \
+			<td class="popup-window-left-column"><div class="popup-window-left-spacer"></div></td> \
+			<td class="popup-window-center-column">', (params.titleBar ? '<div class="popup-window-titlebar" id="popup-window-titlebar-' + uniquePopupId + '"></div>' : ""),'</td> \
+			<td class="popup-window-right-column"><div class="popup-window-right-spacer"></div></td> \
+		</tr> \
+		<tr class="popup-window-content-row"> \
+			<td class="popup-window-left-column"></td> \
+			<td class="popup-window-center-column"><div class="popup-window-content" id="popup-window-content-', uniquePopupId ,'"> \
+			</div></td> \
+			<td class="popup-window-right-column"></td> \
+		</tr> \
+		<tr class="popup-window-bottom-row"> \
+			<td class="popup-window-left-column"></td> \
+			<td class="popup-window-center-column"></td> \
+			<td class="popup-window-right-column"></td> \
+		</tr> \
+	</table>'].join("");
+	document.body.appendChild(this.popupContainer);
+
+	if (params.closeIcon)
+	{
+		this.popupContainer.appendChild(
+			(this.closeIcon = BX.create("a", {
+				props : { className: "popup-window-close-icon" + (params.titleBar ? " popup-window-titlebar-close-icon" : ""), href : ""},
+				style : (typeof(params.closeIcon) == "object" ? params.closeIcon : {} ),
+				events : { click : BX.proxy(this._onCloseIconClick, this) } } )
+			)
+		);
+
+		if (BX.browser.IsIE())
+			BX.adjust(this.closeIcon, { attrs: { hidefocus: "true" } });
+	}
+
+	this.contentContainer = BX("popup-window-content-" +  uniquePopupId);
+	this.titleBar = BX("popup-window-titlebar-" +  uniquePopupId);
+	this.buttonsContainer = this.buttonsHr = null;
+
+	if (params.angle)
+		this.setAngle(params.angle);
+
+	if (params.overlay)
+		this.setOverlay(params.overlay);
+
+	this.setOffset(this.params);
+	this.setBindElement(bindElement);
+	this.setTitleBar(this.params.titleBar);
+	this.setContent(this.params.content);
+	this.setButtons(this.params.buttons);
+
+	if (this.params.bindOnResize !== false)
+	{
+		BX.bind(window, "resize", BX.proxy(this._onResizeWindow, this));
+	}
+};
+
+BX.PopupWindow.prototype.setContent = function(content)
+{
+	if (!this.contentContainer || !content)
+		return;
+
+	if (BX.type.isElementNode(content))
+	{
+		BX.cleanNode(this.contentContainer);
+		this.contentContainer.appendChild(content.parentNode ? content.parentNode.removeChild(content) : content );
+		content.style.display = "block";
+	}
+	else if (BX.type.isString(content))
+	{
+		this.contentContainer.innerHTML = content;
+	}
+	else
+		this.contentContainer.innerHTML = "&nbsp;";
+
+};
+
+BX.PopupWindow.prototype.setButtons = function(buttons)
+{
+	this.buttons = buttons && BX.type.isArray(buttons) ? buttons : [];
+
+	if (this.buttonsHr)
+		BX.remove(this.buttonsHr);
+	if (this.buttonsContainer)
+		BX.remove(this.buttonsContainer);
+
+	if (this.buttons.length > 0 && this.contentContainer)
+	{
+		var newButtons = [];
+		for (var i = 0; i < this.buttons.length; i++)
+		{
+			var button = this.buttons[i];
+			if (button == null || !BX.is_subclass_of(button, BX.PopupWindowButton))
+				continue;
+
+			button.popupWindow = this;
+			newButtons.push(button.render());
+		}
+
+		this.buttonsHr = this.contentContainer.parentNode.appendChild(
+			BX.create("div",{
+				props : { className : "popup-window-hr popup-window-buttons-hr" },
+				children : [ BX.create("i", {}) ]
+			})
+		);
+
+		this.buttonsContainer = this.contentContainer.parentNode.appendChild(
+			BX.create("div",{
+				props : { className : "popup-window-buttons" },
+				children : newButtons
+			})
+		);
+	}
+};
+
+BX.PopupWindow.prototype.setBindElement = function(bindElement)
+{
+	if (!bindElement || typeof(bindElement) != "object")
+		return;
+
+	if (BX.type.isDomNode(bindElement) || (BX.type.isNumber(bindElement.top) && BX.type.isNumber(bindElement.left)))
+		this.bindElement = bindElement;
+	else if (BX.type.isNumber(bindElement.clientX) && BX.type.isNumber(bindElement.clientY))
+	{
+		BX.fixEventPageXY(bindElement);
+		this.bindElement = { left : bindElement.pageX, top : bindElement.pageY, bottom : bindElement.pageY };
+	}
+};
+
+BX.PopupWindow.prototype.getBindElementPos = function(bindElement)
+{
+	if (BX.type.isDomNode(bindElement))
+	{
+		return BX.pos(bindElement, false);
+	}
+	else if (bindElement && typeof(bindElement) == "object")
+	{
+		if (!BX.type.isNumber(bindElement.bottom))
+			bindElement.bottom = bindElement.top;
+		return bindElement;
+	}
+	else
+	{
+		var windowSize =  BX.GetWindowInnerSize();
+		var windowScroll = BX.GetWindowScrollPos();
+		var popupWidth = this.popupContainer.offsetWidth;
+		var popupHeight = this.popupContainer.offsetHeight;
+
+		return {
+			left : windowSize.innerWidth/2 - popupWidth/2 + windowScroll.scrollLeft,
+			top : windowSize.innerHeight/2 - popupHeight/2 + windowScroll.scrollTop,
+			bottom : windowSize.innerHeight/2 - popupHeight/2 + windowScroll.scrollTop,
+
+			//for optimisation purposes
+			windowSize : windowSize,
+			windowScroll : windowScroll,
+			popupWidth : popupWidth,
+			popupHeight : popupHeight
+		};
+	}
+};
+
+BX.PopupWindow.prototype.setAngle = function(params)
+{
+	var className = this.params.lightShadow ? "popup-window-light-angly" : "popup-window-angly";
+	if (this.angle == null)
+	{
+		var position = this.bindOptions.position && this.bindOptions.position == "top" ? "bottom" : "top";
+		var angleMinLeft = BX.PopupWindow.getOption(position == "top" ? "angleMinTop" : "angleMinBottom");
+		var defaultOffset = BX.type.isNumber(params.offset) ? params.offset : 0;
+
+		var angleLeftOffset = BX.PopupWindow.getOption("angleLeftOffset", null);
+		if (defaultOffset > 0 && BX.type.isNumber(angleLeftOffset))
+			defaultOffset += angleLeftOffset - BX.PopupWindow.defaultOptions.angleLeftOffset;
+
+		this.angle = {
+			element : BX.create("div", { props : { className: className + " " + className +"-" + position }}),
+			position : position,
+			offset : 0,
+			defaultOffset : Math.max(defaultOffset, angleMinLeft)
+			//Math.max(BX.type.isNumber(params.offset) ? params.offset : 0, angleMinLeft)
+		};
+		this.popupContainer.appendChild(this.angle.element);
+	}
+
+	if (typeof(params) == "object" && params.position && BX.util.in_array(params.position, ["top", "right", "bottom", "left", "hide"]))
+	{
+		BX.removeClass(this.angle.element, className + "-" +  this.angle.position);
+		BX.addClass(this.angle.element, className + "-" +  params.position);
+		this.angle.position = params.position;
+	}
+
+	if (typeof(params) == "object" && BX.type.isNumber(params.offset))
+	{
+		var offset = params.offset;
+		var minOffset, maxOffset;
+		if (this.angle.position == "top")
+		{
+			minOffset = BX.PopupWindow.getOption("angleMinTop");
+			maxOffset = this.popupContainer.offsetWidth - BX.PopupWindow.getOption("angleMaxTop");
+			maxOffset = maxOffset < minOffset ? Math.max(minOffset, offset) : maxOffset;
+
+			this.angle.offset = Math.min(Math.max(minOffset, offset), maxOffset);
+			this.angle.element.style.left = this.angle.offset + "px";
+			this.angle.element.style.marginLeft = "auto";
+		}
+		else if (this.angle.position == "bottom")
+		{
+			minOffset = BX.PopupWindow.getOption("angleMinBottom");
+			maxOffset = this.popupContainer.offsetWidth - BX.PopupWindow.getOption("angleMaxBottom");
+			maxOffset = maxOffset < minOffset ? Math.max(minOffset, offset) : maxOffset;
+
+			this.angle.offset = Math.min(Math.max(minOffset, offset), maxOffset);
+			this.angle.element.style.marginLeft = this.angle.offset + "px";
+			this.angle.element.style.left = "auto";
+		}
+		else if (this.angle.position == "right")
+		{
+			minOffset = BX.PopupWindow.getOption("angleMinRight");
+			maxOffset = this.popupContainer.offsetHeight - BX.PopupWindow.getOption("angleMaxRight");
+			maxOffset = maxOffset < minOffset ? Math.max(minOffset, offset) : maxOffset;
+
+			this.angle.offset = Math.min(Math.max(minOffset, offset), maxOffset);
+			this.angle.element.style.top = this.angle.offset + "px";
+		}
+		else if (this.angle.position == "left")
+		{
+			minOffset = BX.PopupWindow.getOption("angleMinLeft");
+			maxOffset = this.popupContainer.offsetHeight - BX.PopupWindow.getOption("angleMaxLeft");
+			maxOffset = maxOffset < minOffset ? Math.max(minOffset, offset) : maxOffset;
+
+			this.angle.offset = Math.min(Math.max(minOffset, offset), maxOffset);
+			this.angle.element.style.top = this.angle.offset + "px";
+		}
+	}
+};
+
+BX.PopupWindow.prototype.isTopAngle = function()
+{
+	return this.angle != null && this.angle.position == "top";
+};
+
+BX.PopupWindow.prototype.isBottomAngle = function()
+{
+	return this.angle != null && this.angle.position == "bottom";
+};
+
+BX.PopupWindow.prototype.isTopOrBottomAngle = function()
+{
+	return this.angle != null && BX.util.in_array(this.angle.position, ["top", "bottom"]);
+};
+
+BX.PopupWindow.prototype.getAngleHeight = function()
+{
+	return (this.isTopOrBottomAngle() ? BX.PopupWindow.getOption("angleTopOffset") : 0);
+};
+
+BX.PopupWindow.prototype.setOffset = function(params)
+{
+	if (typeof(params) != "object")
+		return;
+
+	if (params.offsetLeft && BX.type.isNumber(params.offsetLeft))
+		this.offsetLeft = params.offsetLeft + BX.PopupWindow.getOption("offsetLeft");
+
+	if (params.offsetTop && BX.type.isNumber(params.offsetTop))
+		this.offsetTop = params.offsetTop + BX.PopupWindow.getOption("offsetTop");
+};
+
+BX.PopupWindow.prototype.setTitleBar = function(params)
+{
+	if (!this.titleBar || typeof(params) != "object" || !BX.type.isDomNode(params.content))
+		return;
+
+	this.titleBar.innerHTML = "";
+	this.titleBar.appendChild(params.content);
+
+	if (this.params.draggable)
+	{
+		this.titleBar.parentNode.style.cursor = "move";
+		BX.bind(this.titleBar.parentNode, "mousedown", BX.proxy(this._startDrag, this));
+	}
+};
+
+BX.PopupWindow.prototype.setClosingByEsc = function(enable)
+{
+	enable = !!enable;
+	if (enable)
+	{
+		this.closeByEsc = true;
+		if (!this.isCloseByEscBinded)
+		{
+			BX.bind(document, "keyup", BX.proxy(this._onKeyUp, this));
+			this.isCloseByEscBinded = true;
+		}
+	}
+	else
+	{
+		this.closeByEsc = false;
+		if (this.isCloseByEscBinded)
+		{
+			BX.unbind(document, "keyup", BX.proxy(this._onKeyUp, this));
+			this.isCloseByEscBinded = false;
+		}
+	}
+};
+
+BX.PopupWindow.prototype.setOverlay = function(params)
+{
+	if (this.overlay == null)
+	{
+		this.overlay = {
+			element : BX.create("div", { props : { className: "popup-window-overlay", id : "popup-window-overlay-" + this.uniquePopupId } })
+		};
+
+		this.adjustOverlayZindex();
+		this.resizeOverlay();
+		document.body.appendChild(this.overlay.element);
+	}
+
+	if (params && params.opacity && BX.type.isNumber(params.opacity) && params.opacity >= 0 && params.opacity <= 100)
+	{
+		if (BX.browser.IsIE() && !BX.browser.IsIE9())
+			this.overlay.element.style.filter =  "alpha(opacity=" + params.opacity +")";
+		else
+		{
+			this.overlay.element.style.filter = "none";
+			this.overlay.element.style.opacity = parseFloat(params.opacity/100).toPrecision(3);
+		}
+	}
+
+	if (params && params.backgroundColor)
+		this.overlay.element.style.backgroundColor = params.backgroundColor;
+};
+
+BX.PopupWindow.prototype.removeOverlay = function()
+{
+	if (this.overlay != null && this.overlay.element != null)
+		BX.remove(this.overlay.element);
+
+	this.overlay = null;
+};
+
+BX.PopupWindow.prototype.hideOverlay = function()
+{
+	if (this.overlay != null && this.overlay.element != null)
+		this.overlay.element.style.display = "none";
+};
+
+BX.PopupWindow.prototype.showOverlay = function()
+{
+	if (this.overlay != null && this.overlay.element != null)
+		this.overlay.element.style.display = "block";
+};
+
+BX.PopupWindow.prototype.resizeOverlay = function()
+{
+	if (this.overlay != null && this.overlay.element != null)
+	{
+		var windowSize = BX.GetWindowScrollSize();
+		this.overlay.element.style.width = windowSize.scrollWidth + "px";
+		this.overlay.element.style.height = windowSize.scrollHeight + "px";
+	}
+};
+
+BX.PopupWindow.prototype.getZindex = function()
+{
+	if (this.overlay != null)
+		return BX.PopupWindow.getOption("popupOverlayZindex") + this.params.zIndex;
+	else
+		return BX.PopupWindow.getOption("popupZindex") + this.params.zIndex;
+};
+
+
+BX.PopupWindow.prototype.adjustOverlayZindex = function()
+{
+	if (this.overlay != null && this.overlay.element != null)
+	{
+		this.overlay.element.style.zIndex = parseInt(this.popupContainer.style.zIndex) - 1;
+	}
+};
+
+
+BX.PopupWindow.prototype.show = function()
+{
+	if (!this.firstShow)
+	{
+		BX.onCustomEvent(this, "onPopupFirstShow", [this]);
+		this.firstShow = true;
+	}
+	BX.onCustomEvent(this, "onPopupShow", [this]);
+
+	this.showOverlay();
+	this.popupContainer.style.display = "block";
+
+	this.adjustPosition();
+
+	BX.onCustomEvent(this, "onAfterPopupShow", [this]);
+
+	if (this.closeByEsc && !this.isCloseByEscBinded)
+	{
+		BX.bind(document, "keyup", BX.proxy(this._onKeyUp, this));
+		this.isCloseByEscBinded = true;
+	}
+
+	if (this.params.autoHide && !this.isAutoHideBinded)
+	{
+		setTimeout(
+			BX.proxy(function() {
+				this.isAutoHideBinded = true;
+				BX.bind(this.popupContainer, "click", this.cancelBubble);
+				BX.bind(document, "click", BX.proxy(this.close, this));
+			}, this), 0
+		);
+	}
+};
+
+BX.PopupWindow.prototype.isShown = function()
+{
+   return this.popupContainer.style.display == "block";
+};
+
+BX.PopupWindow.prototype.cancelBubble = function(event)
+{
+	if(!event)
+		event = window.event;
+
+	if (event.stopPropagation)
+		event.stopPropagation();
+	else
+		event.cancelBubble = true;
+};
+
+BX.PopupWindow.prototype.close = function(event)
+{
+	if (!this.isShown())
+		return;
+
+	if (event && !(BX.getEventButton(event)&BX.MSLEFT))
+		return true;
+
+	BX.onCustomEvent(this, "onPopupClose", [this, event]);
+
+	this.hideOverlay();
+	this.popupContainer.style.display = "none";
+
+	if (this.isCloseByEscBinded)
+	{
+		BX.unbind(document, "keyup", BX.proxy(this._onKeyUp, this));
+		this.isCloseByEscBinded = false;
+	}
+
+	setTimeout(BX.proxy(this._close, this), 0);
+};
+
+BX.PopupWindow.prototype._close = function()
+{
+	if (this.params.autoHide && this.isAutoHideBinded)
+	{
+		this.isAutoHideBinded = false;
+		BX.unbind(this.popupContainer, "click", this.cancelBubble);
+		BX.unbind(document, "click", BX.proxy(this.close, this));
+	}
+};
+
+BX.PopupWindow.prototype._onCloseIconClick = function(event)
+{
+	event = event || window.event;
+	this.close(event);
+	BX.PreventDefault(event);
+};
+
+BX.PopupWindow.prototype._onKeyUp = function(event)
+{
+	event = event || window.event;
+	if (event.keyCode == 27)
+	{
+		_checkEscPressed(this.getZindex(), BX.proxy(this.close, this));
+	}
+};
+
+BX.PopupWindow.prototype.destroy = function()
+{
+	BX.onCustomEvent(this, "onPopupDestroy", [this]);
+	BX.unbindAll(this);
+	BX.unbind(document, "keyup", BX.proxy(this._onKeyUp, this));
+	BX.unbind(document, "click", BX.proxy(this.close, this));
+	BX.unbind(document, "mousemove", BX.proxy(this._moveDrag, this));
+	BX.unbind(document, "mouseup", BX.proxy(this._stopDrag, this));
+	BX.unbind(window, "resize", BX.proxy(this._onResizeWindow, this));
+	BX.remove(this.popupContainer);
+	this.removeOverlay();
+};
+
+BX.PopupWindow.prototype.adjustPosition = function(bindOptions)
+{
+	if (bindOptions && typeof(bindOptions) == "object")
+		this.bindOptions = bindOptions;
+
+	var bindElementPos = this.getBindElementPos(this.bindElement);
+
+	if (!this.bindOptions.forceBindPosition && this.bindElementPos != null &&
+		 bindElementPos.top == this.bindElementPos.top &&
+		 bindElementPos.left == this.bindElementPos.left
+	)
+		return;
+
+	this.bindElementPos = bindElementPos;
+
+	var windowSize = bindElementPos.windowSize ? bindElementPos.windowSize : BX.GetWindowInnerSize();
+	var windowScroll = bindElementPos.windowScroll ? bindElementPos.windowScroll : BX.GetWindowScrollPos();
+	var popupWidth = bindElementPos.popupWidth ? bindElementPos.popupWidth : this.popupContainer.offsetWidth;
+	var popupHeight = bindElementPos.popupHeight ? bindElementPos.popupHeight : this.popupContainer.offsetHeight;
+
+	var angleTopOffset = BX.PopupWindow.getOption("angleTopOffset");
+
+	var left = this.bindElementPos.left + this.offsetLeft -
+				(this.isTopOrBottomAngle() ? BX.PopupWindow.getOption("angleLeftOffset") : 0);
+
+	if ( !this.bindOptions.forceLeft &&
+		(left + popupWidth + this.bordersWidth) >= (windowSize.innerWidth + windowScroll.scrollLeft) &&
+		(windowSize.innerWidth + windowScroll.scrollLeft - popupWidth - this.bordersWidth) > 0)
+	{
+			var bindLeft = left;
+			left = windowSize.innerWidth + windowScroll.scrollLeft - popupWidth - this.bordersWidth;
+			if (this.isTopOrBottomAngle())
+			{
+				this.setAngle({ offset : bindLeft - left + this.angle.defaultOffset});
+			}
+	}
+	else if (this.isTopOrBottomAngle())
+	{
+		this.setAngle({ offset : this.angle.defaultOffset + (left < 0 ? left : 0) });
+	}
+
+	if (left < 0)
+		left = 0;
+
+	var top = 0;
+
+	if (this.bindOptions.position && this.bindOptions.position == "top")
+	{
+		top = this.bindElementPos.top - popupHeight - this.offsetTop - (this.isBottomAngle() ? angleTopOffset : 0);
+		if (top < 0 || (!this.bindOptions.forceTop && top < windowScroll.scrollTop))
+		{
+			top = this.bindElementPos.bottom + this.offsetTop;
+			if (this.angle != null)
+			{
+				top += angleTopOffset;
+				this.setAngle({ position: "top"});
+			}
+		}
+		else if (this.isTopAngle())
+		{
+			top = top - angleTopOffset + BX.PopupWindow.getOption("positionTopXOffset");
+			this.setAngle({ position: "bottom"});
+		}
+		else
+		{
+			top += BX.PopupWindow.getOption("positionTopXOffset");
+		}
+	}
+	else
+	{
+		top = this.bindElementPos.bottom + this.offsetTop + this.getAngleHeight();
+
+		if ( !this.bindOptions.forceTop &&
+			(top + popupHeight) > (windowSize.innerHeight + windowScroll.scrollTop) &&
+			(this.bindElementPos.top - popupHeight - this.getAngleHeight()) >= 0) //Can we place the PopupWindow above the bindElement?
+		{
+			//The PopupWindow doesn't place below the bindElement. We should place it above.
+			top = this.bindElementPos.top - popupHeight;
+			if (this.isTopOrBottomAngle())
+			{
+				top -= angleTopOffset;
+				this.setAngle({ position: "bottom"});
+			}
+
+			top += BX.PopupWindow.getOption("positionTopXOffset");
+		}
+		else if (this.isBottomAngle())
+		{
+			top += angleTopOffset;
+			this.setAngle({ position: "top"});
+		}
+	}
+
+	if (top < 0)
+		top = 0;
+
+	BX.adjust(this.popupContainer, { style: {
+		top: top + "px",
+		left: left + "px",
+		zIndex: this.getZindex()
+	}});
+
+	this.adjustOverlayZindex();
+};
+
+BX.PopupWindow.prototype._onResizeWindow = function(event)
+{
+	if (this.isShown())
+	{
+		this.adjustPosition();
+		if (this.overlay != null)
+			this.resizeOverlay();
+	}
+};
+
+BX.PopupWindow.prototype.move = function(offsetX, offsetY)
+{
+	var left = parseInt(this.popupContainer.style.left) + offsetX;
+	var top = parseInt(this.popupContainer.style.top) + offsetY;
+
+	if (typeof(this.params.draggable) == "object" && this.params.draggable.restrict)
+	{
+		//Left side
+		if (left < 0)
+			left = 0;
+
+		//Right side
+		var scrollSize = BX.GetWindowScrollSize();
+		var floatWidth = this.popupContainer.offsetWidth;
+		var floatHeight = this.popupContainer.offsetHeight;
+
+		if (left > (scrollSize.scrollWidth - floatWidth))
+			left = scrollSize.scrollWidth - floatWidth;
+
+		if (top > (scrollSize.scrollHeight - floatHeight))
+			top = scrollSize.scrollHeight - floatHeight;
+
+		//Top side
+		if (top < 0)
+			top = 0;
+	}
+
+	this.popupContainer.style.left = left + "px";
+	this.popupContainer.style.top = top + "px";
+};
+
+BX.PopupWindow.prototype._startDrag = function(event)
+{
+	event = event || window.event;
+	BX.fixEventPageXY(event);
+
+	this.dragPageX = event.pageX;
+	this.dragPageY = event.pageY;
+	this.dragged = false;
+
+	BX.bind(document, "mousemove", BX.proxy(this._moveDrag, this));
+	BX.bind(document, "mouseup", BX.proxy(this._stopDrag, this));
+
+	if (document.body.setCapture)
+		document.body.setCapture();
+
+	//document.onmousedown = BX.False;
+	document.body.ondrag = BX.False;
+	document.body.onselectstart = BX.False;
+	document.body.style.cursor = "move";
+	document.body.style.MozUserSelect = "none";
+	this.popupContainer.style.MozUserSelect = "none";
+
+	return BX.PreventDefault(event);
+};
+
+BX.PopupWindow.prototype._moveDrag = function(event)
+{
+	event = event || window.event;
+	BX.fixEventPageXY(event);
+
+	if(this.dragPageX == event.pageX && this.dragPageY == event.pageY)
+		return;
+
+	this.move((event.pageX - this.dragPageX), (event.pageY - this.dragPageY));
+	this.dragPageX = event.pageX;
+	this.dragPageY = event.pageY;
+
+	if (!this.dragged)
+	{
+		BX.onCustomEvent(this, "onPopupDragStart");
+		this.dragged = true;
+	}
+
+	BX.onCustomEvent(this, "onPopupDrag");
+};
+
+BX.PopupWindow.prototype._stopDrag = function(event)
+{
+	if(document.body.releaseCapture)
+		document.body.releaseCapture();
+
+	BX.unbind(document, "mousemove", BX.proxy(this._moveDrag, this));
+	BX.unbind(document, "mouseup", BX.proxy(this._stopDrag, this));
+
+	//document.onmousedown = null;
+	document.body.ondrag = null;
+	document.body.onselectstart = null;
+	document.body.style.cursor = "";
+	document.body.style.MozUserSelect = "";
+	this.popupContainer.style.MozUserSelect = "";
+
+	BX.onCustomEvent(this, "onPopupDragEnd");
+	this.dragged = false;
+
+	return BX.PreventDefault(event);
+};
+
+BX.PopupWindow.options = {};
+BX.PopupWindow.defaultOptions = {
+
+	angleLeftOffset : 15,
+
+	positionTopXOffset : 0,
+	angleTopOffset : 8,
+
+	popupZindex : 1000,
+	popupOverlayZindex : 1100,
+
+	angleMinLeft : 10,
+	angleMaxLeft : 10,
+
+	angleMinRight : 10,
+	angleMaxRight : 10,
+
+	angleMinBottom : 7,
+	angleMaxBottom : 25,
+
+	angleMinTop : 7,
+	angleMaxTop : 25,
+
+	offsetLeft : 0,
+	offsetTop: 0
+};
+BX.PopupWindow.setOptions = function(options)
+{
+	if (!options || typeof(options) != "object")
+		return;
+
+	for (var option in options)
+		BX.PopupWindow.options[option] = options[option];
+};
+
+BX.PopupWindow.getOption = function(option, defaultValue)
+{
+	if (typeof(BX.PopupWindow.options[option]) != "undefined")
+		return BX.PopupWindow.options[option];
+	else if (typeof(defaultValue) != "undefined")
+		return defaultValue;
+	else
+		return BX.PopupWindow.defaultOptions[option];
+};
+
+
+/*========================================Buttons===========================================*/
+
+BX.PopupWindowButton = function(params)
+{
+	this.popupWindow = null;
+
+	this.params = params || {};
+
+	this.text = this.params.text || "";
+	this.id = this.params.id || "";
+	this.className = this.params.className || "";
+	this.events = this.params.events || {};
+
+	this.contextEvents = {};
+	for (var eventName in this.events)
+		this.contextEvents[eventName] = BX.proxy(this.events[eventName], this);
+
+	this.nameNode = BX.create("span", { props : { className : "popup-window-button-text"}, text : this.text } );
+	this.buttonNode = BX.create(
+		"span",
+		{
+			props : { className : "popup-window-button" + (this.className.length > 0 ? " " + this.className : ""), id : this.id },
+			children : [
+				BX.create("span", { props : { className : "popup-window-button-left"} } ),
+				this.nameNode,
+				BX.create("span", { props : { className : "popup-window-button-right"} } )
+			],
+			events : this.contextEvents
+		}
+	);
+};
+
+BX.PopupWindowButton.prototype.render = function()
+{
+	return this.buttonNode;
+};
+
+BX.PopupWindowButton.prototype.setName = function(name)
+{
+	this.text = name || "";
+	if (this.nameNode)
+	{
+		BX.cleanNode(this.nameNode);
+		BX.adjust(this.nameNode, { text : this.text} );
+	}
+};
+
+BX.PopupWindowButton.prototype.setClassName = function(className)
+{
+	if (this.buttonNode)
+	{
+		if (BX.type.isString(this.className) && (this.className != ''))
+			BX.removeClass(this.buttonNode, this.className);
+
+		BX.addClass(this.buttonNode, className)
+	}
+
+	this.className = className;
+};
+
+BX.PopupWindowButtonLink = function(params)
+{
+	BX.PopupWindowButtonLink.superclass.constructor.apply(this, arguments);
+
+	this.nameNode = BX.create("span", { props : { className : "popup-window-button-link-text" }, text : this.text, events : this.contextEvents });
+	this.buttonNode = BX.create(
+		"span",
+		{
+			props : { className : "popup-window-button popup-window-button-link" + (this.className.length > 0 ? " " + this.className : ""), id : this.id },
+			children : [this.nameNode]
+		}
+	);
+
+};
+
+BX.extend(BX.PopupWindowButtonLink, BX.PopupWindowButton);
+
+BX.PopupMenu = {
+
+	Data : {},
+	currentItem : null,
+
+	show : function(id, bindElement, menuItems, params)
+	{
+		if (this.currentItem !== null)
+		{
+			this.currentItem.popupWindow.close();
+		}
+
+		this.currentItem = this.create(id, bindElement, menuItems, params);
+		this.currentItem.popupWindow.show();
+	},
+
+	create : function(id, bindElement, menuItems, params)
+	{
+		if (!this.Data[id])
+		{
+			this.Data[id] = new BX.PopupMenuWindow(id, bindElement, menuItems, params);
+		}
+
+		return this.Data[id];
+	},
+
+	getCurrentMenu : function()
+	{
+		return this.currentItem;
+	},
+
+	getMenuById : function(id)
+	{
+		return this.Data[id] ? this.Data[id] : null;
+	},
+
+	destroy : function(id)
+	{
+		var menu = this.getMenuById(id);
+		if (menu)
+		{
+			if (this.currentItem == menu)
+			{
+				this.currentItem = null;
+			}
+			menu.popupWindow.destroy();
+			delete this.Data[id];
+		}
+	}
+};
+
+BX.PopupMenuWindow = function(id, bindElement, menuItems, params)
+{
+	this.id = id;
+	this.bindElement = bindElement;
+	this.menuItems = [];
+	this.itemsContainer = null;
+
+	if (menuItems && BX.type.isArray(menuItems))
+	{
+		for (var i = 0; i < menuItems.length; i++)
+		{
+			this.__addMenuItem(menuItems[i], null);
+		}
+	}
+
+	this.params = params && typeof(params) == "object" ? params : {};
+	this.popupWindow = this.__createPopup();
+};
+
+BX.PopupMenuWindow.prototype.__createItem = function(item, position)
+{
+	if (position > 0)
+	{
+		item.layout.hr = BX.create("div", { props : { className : "popup-window-hr" }, children : [ BX.create("i", {}) ]});
+	}
+
+	if (item.delimiter)
+	{
+		item.layout.item = BX.create("span", { props: { className: "popup-window-delimiter" },  html: "<i></i>" });
+	}
+	else
+	{
+		item.layout.item = BX.create(!!item.href ? "a" : "span", {
+			props : { className: "menu-popup-item" +  (BX.type.isNotEmptyString(item.className) ? " " + item.className : " menu-popup-no-icon")},
+			attrs : { title : item.title ? item.title : "", onclick: item.onclick && BX.type.isString(item.onclick) ? item.onclick : "" },
+			events : item.onclick && BX.type.isFunction(item.onclick) ? { click : BX.proxy(this.onItemClick, {obj : this, item : item }) } : null,
+			children : [
+				BX.create("span", { props : { className: "menu-popup-item-left"} }),
+				BX.create("span", { props : { className: "menu-popup-item-icon"} }),
+				(item.layout.text = BX.create("span", { props : { className: "menu-popup-item-text"}, html : item.text })),
+				BX.create("span", { props : { className: "menu-popup-item-right"} })
+			]
+		});
+
+		if (item.href)
+			item.layout.item.href = item.href;
+	}
+
+	return item;
+};
+
+BX.PopupMenuWindow.prototype.__createPopup = function()
+{
+	var domItems = [];
+	for (var i = 0; i < this.menuItems.length; i++)
+	{
+		this.__createItem(this.menuItems[i], i);
+		if (this.menuItems[i].layout.hr != null)
+		{
+			domItems.push(this.menuItems[i].layout.hr);
+		}
+
+		domItems.push(this.menuItems[i].layout.item);
+	}
+
+	var popupWindow = new BX.PopupWindow("menu-popup-" + this.id, this.bindElement, {
+		closeByEsc : typeof(this.params.closeByEsc) != "undefined" ? this.params.closeByEsc: false,
+		bindOptions : typeof(this.params.bindOptions) == "object" ? this.params.bindOptions : {},
+		angle : typeof(this.params.angle) != "undefined" ? this.params.angle : false,
+		zIndex : this.params.zIndex ? this.params.zIndex : 0,
+		overlay: typeof(this.params.overlay) == "object" ? this.params.overlay : null,
+		autoHide : typeof(this.params.autoHide) != "undefined" ? this.params.autoHide : true,
+		offsetTop : this.params.offsetTop ? this.params.offsetTop : 1,
+		offsetLeft : this.params.offsetLeft ? this.params.offsetLeft : 0,
+
+		lightShadow : typeof(this.params.lightShadow) != "undefined" ? this.params.lightShadow : true,
+
+		content : BX.create("div", { props : { className : "menu-popup" }, children: [
+			(this.itemsContainer = BX.create("div", { props : { className : "menu-popup-items" }, children: domItems}))
+		]})
+	});
+
+	if (this.params && this.params.events)
+	{
+		for (var eventName in this.params.events)
+		{
+			if (this.params.events.hasOwnProperty(eventName))
+			{
+				BX.addCustomEvent(popupWindow, eventName, this.params.events[eventName]);
+			}
+		}
+	}
+
+	return popupWindow;
+};
+
+BX.PopupMenuWindow.prototype.onItemClick = function(event)
+{
+	event = event || window.event;
+	this.item.onclick.call(this.obj, event, this.item);
+};
+
+BX.PopupMenuWindow.prototype.addMenuItem = function(menuItem, refItemId)
+{
+	var position = this.__addMenuItem(menuItem, refItemId);
+	if (position < 0)
+	{
+		return false;
+	}
+
+	this.__createItem(menuItem, position);
+	var refItem = this.getMenuItem(refItemId);
+	if (refItem != null)
+	{
+		if (refItem.layout.hr == null)
+		{
+			refItem.layout.hr = BX.create("div", { props : { className : "popup-window-hr" }, children : [ BX.create("i", {}) ]});
+			this.itemsContainer.insertBefore(refItem.layout.hr, refItem.layout.item);
+		}
+
+		if (menuItem.layout.hr != null)
+		{
+			this.itemsContainer.insertBefore(menuItem.layout.hr, refItem.layout.hr);
+		}
+
+		this.itemsContainer.insertBefore(menuItem.layout.item, refItem.layout.hr);
+	}
+	else
+	{
+		if (menuItem.layout.hr != null)
+		{
+			this.itemsContainer.appendChild(menuItem.layout.hr);
+		}
+
+		this.itemsContainer.appendChild(menuItem.layout.item);
+	}
+
+	return true;
+};
+
+BX.PopupMenuWindow.prototype.__addMenuItem = function(menuItem, refItemId)
+{
+	if (!menuItem || (!menuItem.delimiter && !BX.type.isNotEmptyString(menuItem.text)) || (menuItem.id && this.getMenuItem(menuItem.id) != null))
+	{
+		return -1;
+	}
+
+	menuItem.layout = { item : null, text : null, hr : null };
+
+	var position = this.getMenuItemPosition(refItemId);
+	if (position >= 0)
+	{
+		this.menuItems = BX.util.insertIntoArray(this.menuItems, position, menuItem);
+	}
+	else
+	{
+		this.menuItems.push(menuItem);
+		position = this.menuItems.length - 1;
+	}
+
+	return position;
+};
+
+BX.PopupMenuWindow.prototype.removeMenuItem = function(itemId)
+{
+	var item = this.getMenuItem(itemId);
+	if (!item)
+	{
+		return;
+	}
+
+	for (var position = 0; position < this.menuItems.length; position++)
+	{
+		if (this.menuItems[position] == item)
+		{
+			this.menuItems = BX.util.deleteFromArray(this.menuItems, position);
+			break;
+		}
+	}
+
+	if (position == 0)
+	{
+		if (this.menuItems[0])
+		{
+			this.menuItems[0].layout.hr.parentNode.removeChild(this.menuItems[0].layout.hr);
+			this.menuItems[0].layout.hr = null;
+		}
+	}
+	else
+	{
+		item.layout.hr.parentNode.removeChild(item.layout.hr);
+	}
+
+	item.layout.item.parentNode.removeChild(item.layout.item);
+	item.layout.item = null;
+};
+
+BX.PopupMenuWindow.prototype.getMenuItem = function(itemId)
+{
+	for (var i = 0; i < this.menuItems.length; i++)
+	{
+		if (this.menuItems[i].id && this.menuItems[i].id == itemId)
+		{
+			return this.menuItems[i];
+		}
+	}
+
+	return null;
+};
+
+BX.PopupMenuWindow.prototype.getMenuItemPosition = function(itemId)
+{
+	if (itemId)
+	{
+		for (var i = 0; i < this.menuItems.length; i++)
+		{
+			if (this.menuItems[i].id && this.menuItems[i].id == itemId)
+			{
+				return i;
+			}
+		}
+	}
+
+	return -1;
+};
+
+// TODO: copypaste/update/enhance CSS and images from calendar to MAIN CORE
+// this.values = [{ID: 1, NAME : '111', DESCRIPTION: '111', URL: 'href://...'}]
+
+window.BXInputPopup = function(params)
+{
+	this.id = params.id || 'bx-inp-popup-' + Math.round(Math.random() * 1000000);
+	this.handler = params.handler || false;
+	this.values = params.values || false;
+	this.pInput = params.input;
+	this.bValues = !!this.values;
+	this.defaultValue = params.defaultValue || '';
+	this.openTitle = params.openTitle || '';
+	this.className = params.className || '';
+	this.noMRclassName = params.noMRclassName || 'ec-no-rm';
+	this.emptyClassName = params.noMRclassName || 'ec-label';
+
+	var _this = this;
+	this.curInd = false;
+
+	if (this.bValues)
+	{
+		this.pInput.onfocus = this.pInput.onclick = function(e)
+		{
+			if (this.value == _this.defaultValue)
+			{
+				this.value = '';
+				this.className = _this.className;
+			}
+			_this.ShowPopup();
+			return BX.PreventDefault(e);
+		};
+		this.pInput.onblur = function()
+		{
+			if (_this.bShowed)
+				setTimeout(function(){_this.ClosePopup(true);}, 200);
+			_this.OnChange();
+		};
+	}
+	else
+	{
+		this.pInput.className = this.noMRclassName;
+		this.pInput.onblur = BX.proxy(this.OnChange, this);
+	}
+}
+
+BXInputPopup.prototype = {
+ShowPopup: function()
+{
+	if (this.bShowed)
+		return;
+
+	var _this = this;
+	if (!this.oPopup)
+	{
+		var
+			pRow,
+			pWnd = BX.create("DIV", {props:{className: "bxecpl-loc-popup " + this.className}});
+
+		for (var i = 0, l = this.values.length; i < l; i++)
+		{
+			pRow = pWnd.appendChild(BX.create("DIV", {
+				props: {id: 'bxecmr_' + i},
+				text: this.values[i].NAME,
+				events: {
+					mouseover: function(){BX.addClass(this, 'bxecplloc-over');},
+					mouseout: function(){BX.removeClass(this, 'bxecplloc-over');},
+					click: function()
+					{
+						var ind = this.id.substr('bxecmr_'.length);
+						_this.pInput.value = _this.values[ind].NAME;
+						_this.curInd = ind;
+						_this.OnChange();
+						_this.ClosePopup(true);
+					}
+				}
+			}));
+
+			if (this.values[i].DESCRIPTION)
+				pRow.title = this.values[i].DESCRIPTION;
+			if (this.values[i].CLASS_NAME)
+				BX.addClass(pRow, this.values[i].CLASS_NAME);
+
+			if (this.values[i].URL)
+				pRow.appendChild(BX.create('A', {props: {href: this.values[i].URL, className: 'bxecplloc-view', target: '_blank', title: this.openTitle}}));
+		}
+
+		this.oPopup = new BX.PopupWindow(this.id, this.pInput, {
+			autoHide : true,
+			offsetTop : 1,
+			offsetLeft : 0,
+			lightShadow : true,
+			closeByEsc : true,
+			content : pWnd
+		});
+
+		BX.addCustomEvent(this.oPopup, 'onPopupClose', BX.proxy(this.ClosePopup, this));
+	}
+
+	this.oPopup.show();
+	this.pInput.select();
+
+	this.bShowed = true;
+	BX.onCustomEvent(this, 'onInputPopupShow', [this]);
+},
+
+ClosePopup: function(bClosePopup)
+{
+	this.bShowed = false;
+
+	if (this.pInput.value == '')
+		this.OnChange();
+
+	BX.onCustomEvent(this, 'onInputPopupClose', [this]);
+
+	if (bClosePopup === true)
+		this.oPopup.close();
+},
+
+OnChange: function()
+{
+	var val = this.pInput.value;
+	if (this.bValues)
+	{
+		if (this.pInput.value == '' || this.pInput.value == this.defaultValue)
+		{
+			this.pInput.value = this.defaultValue;
+			this.pInput.className = this.emptyClassName;
+			val = '';
+		}
+		else
+		{
+			this.pInput.className = '';
+		}
+	}
+
+	if (isNaN(parseInt(this.curInd)) || this.curInd !==false && val != this.values[this.curInd].NAME)
+		this.curInd = false;
+	else
+		this.curInd = parseInt(this.curInd);
+
+	BX.onCustomEvent(this, 'onInputPopupChanged', [this, this.curInd, val]);
+	if (this.handler && typeof this.handler == 'function')
+		this.handler({ind: this.curInd, value: val});
+},
+
+Set: function(ind, val, bOnChange)
+{
+	this.curInd = ind;
+	if (this.curInd !== false)
+		this.pInput.value = this.values[this.curInd].NAME;
+	else
+		this.pInput.value = val;
+
+	if (bOnChange !== false)
+		this.OnChange();
+},
+
+Get: function(ind)
+{
+	var
+		id = false;
+	if (typeof ind == 'undefined')
+		ind = this.curInd;
+
+	if (ind !== false && this.values[ind])
+		id = this.values[ind].ID;
+	return id;
+},
+
+GetIndex: function(id)
+{
+	for (var i = 0, l = this.values.length; i < l; i++)
+		if (this.values[i].ID == id)
+			return i;
+	return false;
+},
+
+Deactivate: function(bDeactivate)
+{
+	if (this.pInput.value == '' || this.pInput.value == this.defaultValue)
+	{
+		if (bDeactivate)
+		{
+			this.pInput.value = '';
+			this.pInput.className = this.noMRclassName;
+		}
+		else if (this.oEC.bUseMR)
+		{
+			this.pInput.value = this.defaultValue;
+			this.pInput.className = this.emptyClassName;
+		}
+	}
+	this.pInput.disabled = bDeactivate;
+}
+};
+
+/************** utility *************/
+
+var _escCallbackIndex = -1,
+	_escCallback = null;
+
+function _checkEscPressed(zIndex, callback)
+{
+	if(zIndex === false)
+	{
+		if(_escCallback && _escCallback.length > 0)
+		{
+			for(var i=0;i<_escCallback.length; i++)
+			{
+				_escCallback[i]();
+			}
+
+			_escCallback = null;
+			_escCallbackIndex = -1;
+		}
+	}
+	else
+	{
+		if(_escCallback === null)
+		{
+			_escCallback = [];
+			_escCallbackIndex = -1;
+			BX.defer(_checkEscPressed)(false);
+		}
+
+		if(zIndex > _escCallbackIndex)
+		{
+			_escCallbackIndex = zIndex;
+			_escCallback = [callback];
+		}
+		else if(zIndex == _escCallbackIndex)
+		{
+			_escCallback.push(callback)
+		}
+	}
+}
+
+
+})(window);
+
+/* End */
+;
+; /* Start:/bitrix/js/main/core/core_date.js*/
+;(function(){
+
+if (BX.date)
+	return;
+
+BX.date = {};
+
+
+BX.date.format = function(format, timestamp, now, utc)
+{
+	/*
+	PHP to Javascript:
+		time() = new Date()
+		mktime(...) = new Date(...)
+		gmmktime(...) = new Date(Date.UTC(...))
+		mktime(0,0,0, 1, 1, 1970) != 0          new Date(1970,0,1).getTime() != 0
+		gmmktime(0,0,0, 1, 1, 1970) == 0        new Date(Date.UTC(1970,0,1)).getTime() == 0
+		date("d.m.Y H:i:s") = BX.date.format("d.m.Y H:i:s")
+		gmdate("d.m.Y H:i:s") = BX.date.format("d.m.Y H:i:s", null, null, true);
+	*/
+	var date = BX.type.isDate(timestamp) ? new Date(timestamp.getTime()) : BX.type.isNumber(timestamp) ? new Date(timestamp * 1000) : new Date();
+	var nowDate = BX.type.isDate(now) ? new Date(now.getTime()) : BX.type.isNumber(now) ? new Date(now * 1000) : new Date();
+	var isUTC = !!utc;
+
+	if (BX.type.isArray(format))
+		return _formatDateInterval(format, date, nowDate, isUTC);
+	else if (!BX.type.isNotEmptyString(format))
+		return "";
+
+	var formatRegex = /\\?(sago|iago|isago|Hago|dago|mago|Yago|sdiff|idiff|Hdiff|ddiff|mdiff|Ydiff|yesterday|today|tommorow|[a-z])/gi;
+
+	var dateFormats = {
+		d : function() {
+			// Day of the month 01 to 31
+			return BX.util.str_pad_left(getDate(date).toString(), 2, "0");
+		},
+
+		D : function() {
+			//Mon through Sun
+			return BX.message("DOW_" + getDay(date));
+		},
+
+		j : function() {
+			//Day of the month 1 to 31
+			return getDate(date);
+		},
+
+		l : function() {
+			//Sunday through Saturday
+			return BX.message("DAY_OF_WEEK_" + getDay(date));
+		},
+
+		N : function() {
+			//1 (for Monday) through 7 (for Sunday)
+			return getDay(date) || 7;
+		},
+
+		S : function() {
+			//st, nd, rd or th. Works well with j
+			if (getDate(date) % 10 == 1 && getDate(date) != 11)
+				return "st";
+			else if (getDate(date) % 10 == 2 && getDate(date) != 12)
+				return "nd";
+			else if (getDate(date) % 10 == 3 && getDate(date) != 13)
+				return "rd";
+			else
+				return "th";
+		},
+
+		w : function() {
+			//0 (for Sunday) through 6 (for Saturday)
+			return getDay(date);
+		},
+
+		z : function() {
+			//0 through 365
+			var firstDay = new Date(getFullYear(date), 0, 1);
+			var currentDay = new Date(getFullYear(date), getMonth(date), getDate(date));
+			return Math.ceil( (currentDay - firstDay) / (24 * 3600 * 1000) );
+		},
+
+		W : function() {
+			//ISO-8601 week number of year
+			var newDate  = new Date(date.getTime());
+		    var dayNumber   = (getDay(date) + 6) % 7;
+			setDate(newDate, getDate(newDate) - dayNumber + 3);
+		    var firstThursday = newDate.getTime();
+			setMonth(newDate, 0, 1);
+		    if (getDay(newDate) != 4)
+				setMonth(newDate, 0, 1 + ((4 - getDay(newDate)) + 7) % 7);
+			var weekNumber = 1 + Math.ceil((firstThursday - newDate) / (7 * 24 * 3600 * 1000));
+		    return BX.util.str_pad_left(weekNumber.toString(), 2, "0");
+		},
+
+		F : function() {
+			//January through December
+			return BX.message("MONTH_" + (getMonth(date) + 1) + "_S");
+		},
+
+		f : function() {
+			//January through December
+			return BX.message("MONTH_" + (getMonth(date) + 1));
+		},
+
+		m : function() {
+			//Numeric representation of a month 01 through 12
+			return BX.util.str_pad_left((getMonth(date) + 1).toString(), 2, "0");
+		},
+
+		M : function() {
+			//A short textual representation of a month, three letters Jan through Dec
+			return BX.message("MON_" + (getMonth(date) + 1));
+		},
+
+		n : function() {
+			//Numeric representation of a month 1 through 12
+			return getMonth(date) + 1;
+		},
+
+		t : function() {
+			//Number of days in the given month 28 through 31
+			var lastMonthDay = isUTC ? new Date(Date.UTC(getFullYear(date), getMonth(date) + 1, 0)) : new Date(getFullYear(date), getMonth(date) + 1, 0);
+			return getDate(lastMonthDay);
+		},
+
+		L : function() {
+			//1 if it is a leap year, 0 otherwise.
+			var year = getFullYear(date);
+			return (year % 4 == 0 && year % 100 != 0 || year % 400 == 0 ? 1 : 0);
+		},
+
+		o : function() {
+			//ISO-8601 year number
+			var correctDate  = new Date(date.getTime());
+			setDate(correctDate, getDate(correctDate) - ((getDay(date) + 6) % 7) + 3);
+   			return getFullYear(correctDate);
+		},
+
+		Y : function() {
+			//A full numeric representation of a year, 4 digits
+			return getFullYear(date);
+		},
+
+		y : function() {
+			//A two digit representation of a year
+			return getFullYear(date).toString().slice(2);
+		},
+
+		a : function() {
+			//am or pm
+			return getHours(date) > 11 ? "pm" : "am";
+		},
+
+		A : function() {
+			//AM or PM
+			return getHours(date) > 11 ? "PM" : "AM";
+		},
+
+		B : function() {
+			//000 through 999
+			var swatch = ((date.getUTCHours() + 1) % 24) + date.getUTCMinutes() / 60 + date.getUTCSeconds() / 3600;
+			return BX.util.str_pad_left(Math.floor(swatch * 1000 / 24).toString(), 3, "0");
+		},
+
+		g : function() {
+			//12-hour format of an hour without leading zeros 1 through 12
+			return getHours(date) % 12 || 12;
+		},
+
+		G : function() {
+			//24-hour format of an hour without leading zeros 0 through 23
+			return getHours(date);
+		},
+
+		h : function() {
+			//12-hour format of an hour with leading zeros 01 through 12
+			return BX.util.str_pad_left((getHours(date) % 12 || 12).toString(), 2, "0");
+		},
+
+		H : function() {
+			//24-hour format of an hour with leading zeros 00 through 23
+			return BX.util.str_pad_left(getHours(date).toString(), 2, "0");
+		},
+
+		i : function() {
+			//Minutes with leading zeros 00 to 59
+			return BX.util.str_pad_left(getMinutes(date).toString(), 2, "0");
+		},
+
+		s : function() {
+			//Seconds, with leading zeros 00 through 59
+			return BX.util.str_pad_left(getSeconds(date).toString(), 2, "0");
+		},
+
+		u : function() {
+			//Microseconds
+			return BX.util.str_pad_left((getMilliseconds(date) * 1000).toString(), 6, "0");
+		},
+
+		e : function() {
+			if (isUTC)
+				return "UTC";
+			return "";
+		},
+
+		I : function() {
+			if (isUTC)
+				return 0;
+
+			//Whether or not the date is in daylight saving time 1 if Daylight Saving Time, 0 otherwise
+			var firstJanuary = new Date(getFullYear(date), 0, 1);
+			var firstJanuaryUTC = Date.UTC(getFullYear(date), 0, 1);
+			var firstJuly = new Date(getFullYear(date), 6, 0);
+			var firstJulyUTC = Date.UTC(getFullYear(date), 6, 0);
+			return 0 + ((firstJanuary - firstJanuaryUTC) !== (firstJuly - firstJulyUTC));
+		},
+
+		O : function() {
+			if (isUTC)
+				return "+0000";
+
+			//Difference to Greenwich time (GMT) in hours +0200
+			var timezoneOffset = date.getTimezoneOffset();
+			var timezoneOffsetAbs = Math.abs(timezoneOffset);
+			return (timezoneOffset > 0 ? "-" : "+") + BX.util.str_pad_left((Math.floor(timezoneOffsetAbs / 60) * 100 + timezoneOffsetAbs % 60).toString(), 4, "0");
+		},
+
+		P : function() {
+			if (isUTC)
+				return "+00:00";
+
+			//Difference to Greenwich time (GMT) with colon between hours and minutes +02:00
+			var difference = this.O();
+			return difference.substr(0, 3) + ":" + difference.substr(3);
+		},
+
+		Z : function() {
+			if (isUTC)
+				return 0;
+			//Timezone offset in seconds. The offset for timezones west of UTC is always negative,
+			//and for those east of UTC is always positive.
+			return -date.getTimezoneOffset() * 60;
+		},
+
+		c : function() {
+			//ISO 8601 date
+			return "Y-m-d\\TH:i:sP".replace(formatRegex, _replaceDateFormat);
+		},
+
+		r : function() {
+			//RFC 2822 formatted date
+			return "D, d M Y H:i:s O".replace(formatRegex, _replaceDateFormat);
+		},
+
+		U : function() {
+			//Seconds since the Unix Epoch
+			return Math.floor(date.getTime() / 1000);
+		},
+
+		sago : function() {
+			return _formatDateMessage(intval((nowDate - date) / 1000), {
+				"0" : "FD_SECOND_AGO_0",
+				"1" : "FD_SECOND_AGO_1",
+				"10_20" : "FD_SECOND_AGO_10_20",
+				"MOD_1" : "FD_SECOND_AGO_MOD_1",
+				"MOD_2_4" : "FD_SECOND_AGO_MOD_2_4",
+				"MOD_OTHER" : "FD_SECOND_AGO_MOD_OTHER"
+			});
+		},
+
+		sdiff : function() {
+			return _formatDateMessage(intval((nowDate - date) / 1000), {
+				"0" : "FD_SECOND_DIFF_0",
+				"1" : "FD_SECOND_DIFF_1",
+				"10_20" : "FD_SECOND_DIFF_10_20",
+				"MOD_1" : "FD_SECOND_DIFF_MOD_1",
+				"MOD_2_4" : "FD_SECOND_DIFF_MOD_2_4",
+				"MOD_OTHER" : "FD_SECOND_DIFF_MOD_OTHER"
+			});
+		},
+
+		iago : function() {
+			return _formatDateMessage(intval((nowDate - date) / 60 / 1000), {
+				"0" : "FD_MINUTE_AGO_0",
+				"1" : "FD_MINUTE_AGO_1",
+				"10_20" : "FD_MINUTE_AGO_10_20",
+				"MOD_1" : "FD_MINUTE_AGO_MOD_1",
+				"MOD_2_4" : "FD_MINUTE_AGO_MOD_2_4",
+				"MOD_OTHER" : "FD_MINUTE_AGO_MOD_OTHER"
+			});
+		},
+
+		idiff : function() {
+			return _formatDateMessage(intval((nowDate - date) / 60 / 1000), {
+				"0" : "FD_MINUTE_DIFF_0",
+				"1" : "FD_MINUTE_DIFF_1",
+				"10_20" : "FD_MINUTE_DIFF_10_20",
+				"MOD_1" : "FD_MINUTE_DIFF_MOD_1",
+				"MOD_2_4" : "FD_MINUTE_DIFF_MOD_2_4",
+				"MOD_OTHER" : "FD_MINUTE_DIFF_MOD_OTHER"
+			});
+		},
+
+		isago : function() {
+			var minutesAgo = intval((nowDate - date) / 60 / 1000);
+			var result = _formatDateMessage(minutesAgo, {
+				"0" : "FD_MINUTE_0",
+				"1" : "FD_MINUTE_1",
+				"10_20" : "FD_MINUTE_10_20",
+				"MOD_1" : "FD_MINUTE_MOD_1",
+				"MOD_2_4" : "FD_MINUTE_MOD_2_4",
+				"MOD_OTHER" : "FD_MINUTE_MOD_OTHER"
+			});
+
+			result += " ";
+
+			var secondsAgo = intval((nowDate - date) / 1000) - (minutesAgo * 60);
+			result += _formatDateMessage(secondsAgo, {
+				"0" : "FD_SECOND_AGO_0",
+				"1" : "FD_SECOND_AGO_1",
+				"10_20" : "FD_SECOND_AGO_10_20",
+				"MOD_1" : "FD_SECOND_AGO_MOD_1",
+				"MOD_2_4" : "FD_SECOND_AGO_MOD_2_4",
+				"MOD_OTHER" : "FD_SECOND_AGO_MOD_OTHER"
+			});
+			return result;
+		},
+
+		Hago : function() {
+			return _formatDateMessage(intval((nowDate - date) / 60 / 60 / 1000), {
+				"0" : "FD_HOUR_AGO_0",
+				"1" : "FD_HOUR_AGO_1",
+				"10_20" : "FD_HOUR_AGO_10_20",
+				"MOD_1" : "FD_HOUR_AGO_MOD_1",
+				"MOD_2_4" : "FD_HOUR_AGO_MOD_2_4",
+				"MOD_OTHER" : "FD_HOUR_AGO_MOD_OTHER"
+			});
+		},
+
+		Hdiff : function() {
+			return _formatDateMessage(intval((nowDate - date) / 60 / 60 / 1000), {
+				"0" : "FD_HOUR_DIFF_0",
+				"1" : "FD_HOUR_DIFF_1",
+				"10_20" : "FD_HOUR_DIFF_10_20",
+				"MOD_1" : "FD_HOUR_DIFF_MOD_1",
+				"MOD_2_4" : "FD_HOUR_DIFF_MOD_2_4",
+				"MOD_OTHER" : "FD_HOUR_DIFF_MOD_OTHER"
+			});
+		},
+
+		yesterday : function() {
+			return BX.message("FD_YESTERDAY");
+		},
+
+		today : function() {
+			return BX.message("FD_TODAY");
+		},
+
+		tommorow : function() {
+			return BX.message("FD_TOMORROW");
+		},
+
+		dago : function() {
+			return _formatDateMessage(intval((nowDate - date) / 60 / 60 / 24 / 1000), {
+				"0" : "FD_DAY_AGO_0",
+				"1" : "FD_DAY_AGO_1",
+				"10_20" : "FD_DAY_AGO_10_20",
+				"MOD_1" : "FD_DAY_AGO_MOD_1",
+				"MOD_2_4" : "FD_DAY_AGO_MOD_2_4",
+				"MOD_OTHER" : "FD_DAY_AGO_MOD_OTHER"
+			});
+		},
+
+		ddiff : function() {
+			return _formatDateMessage(intval((nowDate - date) / 60 / 60 / 24 / 1000), {
+				"0" : "FD_DAY_DIFF_0",
+				"1" : "FD_DAY_DIFF_1",
+				"10_20" : "FD_DAY_DIFF_10_20",
+				"MOD_1" : "FD_DAY_DIFF_MOD_1",
+				"MOD_2_4" : "FD_DAY_DIFF_MOD_2_4",
+				"MOD_OTHER" : "FD_DAY_DIFF_MOD_OTHER"
+			});
+		},
+
+		mago : function() {
+			return _formatDateMessage(intval((nowDate - date) / 60 / 60 / 24 / 31 / 1000), {
+				"0" : "FD_MONTH_AGO_0",
+				"1" : "FD_MONTH_AGO_1",
+				"10_20" : "FD_MONTH_AGO_10_20",
+				"MOD_1" : "FD_MONTH_AGO_MOD_1",
+				"MOD_2_4" : "FD_MONTH_AGO_MOD_2_4",
+				"MOD_OTHER" : "FD_MONTH_AGO_MOD_OTHER"
+			});
+		},
+
+		mdiff : function() {
+			return _formatDateMessage(intval((nowDate - date) / 60 / 60 / 24 / 31 / 1000), {
+				"0" : "FD_MONTH_DIFF_0",
+				"1" : "FD_MONTH_DIFF_1",
+				"10_20" : "FD_MONTH_DIFF_10_20",
+				"MOD_1" : "FD_MONTH_DIFF_MOD_1",
+				"MOD_2_4" : "FD_MONTH_DIFF_MOD_2_4",
+				"MOD_OTHER" : "FD_MONTH_DIFF_MOD_OTHER"
+			});
+		},
+
+		Yago : function() {
+			return _formatDateMessage(intval((nowDate - date) / 60 / 60 / 24 / 365 / 1000), {
+				"0" : "FD_YEARS_AGO_0",
+				"1" : "FD_YEARS_AGO_1",
+				"10_20" : "FD_YEARS_AGO_10_20",
+				"MOD_1" : "FD_YEARS_AGO_MOD_1",
+				"MOD_2_4" : "FD_YEARS_AGO_MOD_2_4",
+				"MOD_OTHER" : "FD_YEARS_AGO_MOD_OTHER"
+			});
+		},
+
+		Ydiff : function() {
+			return _formatDateMessage(intval((nowDate - date) / 60 / 60 / 24 / 365 / 1000), {
+				"0" : "FD_YEARS_DIFF_0",
+				"1" : "FD_YEARS_DIFF_1",
+				"10_20" : "FD_YEARS_DIFF_10_20",
+				"MOD_1" : "FD_YEARS_DIFF_MOD_1",
+				"MOD_2_4" : "FD_YEARS_DIFF_MOD_2_4",
+				"MOD_OTHER" : "FD_YEARS_DIFF_MOD_OTHER"
+			});
+		},
+
+		x : function() {
+			return BX.date.format([
+				["tommorow", "tommorow, H:i"],
+				["-", BX.date.convertBitrixFormat(BX.message("FORMAT_DATETIME")).replace(/:s$/g, "")],
+				["s", "sago"],
+				["i", "iago"],
+				["today", "today, H:i"],
+				["yesterday", "yesterday, H:i"],
+				["", BX.date.convertBitrixFormat(BX.message("FORMAT_DATETIME")).replace(/:s$/g, "")]
+			], date, nowDate, isUTC);
+		},
+
+		X : function() {
+			var day = BX.date.format([
+				["tommorow", "tommorow"],
+				["-", BX.date.convertBitrixFormat(BX.message("FORMAT_DATE"))],
+				["today", "today"],
+				["yesterday", "yesterday"],
+				["", BX.date.convertBitrixFormat(BX.message("FORMAT_DATE"))]
+			], date, nowDate, isUTC);
+
+			var time = BX.date.format([
+				["tommorow", "H:i"],
+				["today", "H:i"],
+				["yesterday", "H:i"],
+				["", ""]
+			], date, nowDate, isUTC);
+
+			if (time.length > 0)
+				return BX.message("FD_DAY_AT_TIME").replace(/#DAY#/g, day).replace(/#TIME#/g, time);
+			else
+				return day;
+		},
+
+		Q : function() {
+			var daysAgo = intval((nowDate - date) / 60 / 60 / 24 / 1000);
+			if(daysAgo == 0)
+				return BX.message("FD_DAY_DIFF_1").replace(/#VALUE#/g, 1);
+			else
+				return BX.date.format([ ["d", "ddiff"], ["m", "mdiff"], ["", "Ydiff"] ], date, nowDate);
+		}
+	};
+
+	var cutZeroTime = false;
+	if (format[0] && format[0] == "^")
+	{
+		cutZeroTime = true;
+		format = format.substr(1);
+	}
+
+	var result = format.replace(formatRegex, _replaceDateFormat);
+
+	if (cutZeroTime)
+	{
+		/* 	15.04.12 13:00:00 => 15.04.12 13:00
+			00:01:00 => 00:01
+			4 may 00:00:00 => 4 may
+			01-01-12 00:00 => 01-01-12
+		*/
+
+		result = result.replace(/\s*00:00:00\s*/g, "").
+						replace(/(\d\d:\d\d)(:00)/g, "$1").
+						replace(/(\s*00:00\s*)(?!:)/g, "");
+	}
+
+	return result;
+
+	function _formatDateInterval(formats, date, nowDate, isUTC)
+	{
+		var secondsAgo = intval((nowDate - date) / 1000);
+		for (var i = 0; i < formats.length; i++)
+		{
+			var formatInterval = formats[i][0];
+			var formatValue = formats[i][1];
+			var match = null;
+			if (formatInterval == "s")
+			{
+				if (secondsAgo < 60)
+					return BX.date.format(formatValue, date, nowDate, isUTC);
+			}
+			else if ((match = /^s(\d+)/.exec(formatInterval)) != null)
+			{
+				if (secondsAgo < match[1])
+					return BX.date.format(formatValue, date, nowDate, isUTC);
+			}
+			else if (formatInterval == "i")
+			{
+				if (secondsAgo < 60 * 60)
+					return BX.date.format(formatValue, date, nowDate, isUTC);
+			}
+			else if ((match = /^i(\d+)/.exec(formatInterval)) != null)
+			{
+				if (secondsAgo < match[1]*60)
+					return BX.date.format(formatValue, date, nowDate, isUTC);
+			}
+			else if (formatInterval == "H")
+			{
+				if (secondsAgo < 24 * 60 * 60)
+					return BX.date.format(formatValue, date, nowDate, isUTC);
+			}
+			else if ((match = /^H(\d+)/.exec(formatInterval)) != null)
+			{
+				if (secondsAgo < match[1] * 60 * 60)
+					return BX.date.format(formatValue, date, nowDate, isUTC);
+			}
+			else if (formatInterval == "d")
+			{
+				if (secondsAgo < 31 *24 * 60 * 60)
+					return BX.date.format(formatValue, date, nowDate, isUTC);
+			}
+			else if ((match = /^d(\d+)/.exec(formatInterval)) != null)
+			{
+				if (secondsAgo < match[1] * 60 * 60)
+					return BX.date.format(formatValue, date, nowDate, isUTC);
+			}
+			else if (formatInterval == "m")
+			{
+				if (secondsAgo < 365 * 24 * 60 * 60)
+					return BX.date.format(formatValue, date, nowDate, isUTC);
+			}
+			else if ((match = /^m(\d+)/.exec(formatInterval)) != null)
+			{
+				if (secondsAgo < match[1] * 31 * 24 * 60 * 60)
+					return BX.date.format(formatValue, date, nowDate, isUTC);
+			}
+			else if (formatInterval == "today")
+			{
+				var year = getFullYear(nowDate), month = getMonth(nowDate), day = getDate(nowDate);
+				var todayStart = isUTC ? new Date(Date.UTC(year, month, day, 0, 0, 0, 0)) : new Date(year, month, day, 0, 0, 0, 0);
+				var todayEnd = isUTC ? new Date(Date.UTC(year, month, day+1, 0, 0, 0, 0)) : new Date(year, month, day+1, 0, 0, 0, 0);
+				if (date >= todayStart && date < todayEnd)
+					return BX.date.format(formatValue, date, nowDate, isUTC);
+			}
+			else if (formatInterval == "yesterday")
+			{
+				year = getFullYear(nowDate); month = getMonth(nowDate); day = getDate(nowDate);
+				var yesterdayStart = isUTC ? new Date(Date.UTC(year, month, day-1, 0, 0, 0, 0)) : new Date(year, month, day-1, 0, 0, 0, 0);
+				var yesterdayEnd = isUTC ? new Date(Date.UTC(year, month, day, 0, 0, 0, 0)) : new Date(year, month, day, 0, 0, 0, 0);
+				if (date >= yesterdayStart && date < yesterdayEnd)
+					return BX.date.format(formatValue, date, nowDate, isUTC);
+			}
+			else if (formatInterval == "tommorow")
+			{
+				year = getFullYear(nowDate); month = getMonth(nowDate); day = getDate(nowDate);
+				var tommorowStart = isUTC ? new Date(Date.UTC(year, month, day+1, 0, 0, 0, 0)) : new Date(year, month, day+1, 0, 0, 0, 0);
+				var tommorowEnd = isUTC ? new Date(Date.UTC(year, month, day+2, 0, 0, 0, 0)) : new Date(year, month, day+2, 0, 0, 0, 0);
+				if (date >= tommorowStart && date < tommorowEnd)
+					return BX.date.format(formatValue, date, nowDate, isUTC);
+			}
+			else if (formatInterval == "-")
+			{
+				if (secondsAgo < 0)
+					return BX.date.format(formatValue, date, nowDate, isUTC);
+			}
+		}
+
+		return formats.length > 0 ? BX.date.format(formats.pop()[1], date, nowDate, isUTC) : "";
+	}
+
+
+	function getFullYear(date) { return isUTC ? date.getUTCFullYear() : date.getFullYear(); }
+	function getDate(date) { return isUTC ? date.getUTCDate() : date.getDate(); }
+	function getMonth(date) { return isUTC ? date.getUTCMonth() : date.getMonth(); }
+	function getHours(date) { return isUTC ? date.getUTCHours() : date.getHours(); }
+	function getMinutes(date) { return isUTC ? date.getUTCMinutes() : date.getMinutes(); }
+	function getSeconds(date) { return isUTC ? date.getUTCSeconds() : date.getSeconds(); }
+	function getMilliseconds(date) { return isUTC ? date.getUTCMilliseconds() : date.getMilliseconds(); }
+	function getDay(date) { return isUTC ? date.getUTCDay() : date.getDay(); }
+	function setDate(date, dayValue) { return isUTC ? date.setUTCDate(dayValue) : date.setDate(dayValue); }
+	function setMonth(date, monthValue, dayValue) { return isUTC ? date.setUTCMonth(monthValue, dayValue) : date.setMonth(monthValue, dayValue); }
+
+	function _formatDateMessage(value, messages)
+	{
+		var val = value < 100 ? Math.abs(value) : Math.abs(value % 100);
+		var dec = val % 10;
+		var message = "";
+
+		if(val == 0)
+			message = BX.message(messages["0"]);
+		else if (val == 1)
+			message = BX.message(messages["1"]);
+		else if (val >= 10 && val <= 20)
+			message = BX.message(messages["10_20"]);
+		else if (dec == 1)
+			message = BX.message(messages["MOD_1"]);
+		else if (2 <= dec && dec <= 4)
+			message = BX.message(messages["MOD_2_4"]);
+		else
+			message = BX.message(messages["MOD_OTHER"]);
+
+		return message.replace(/#VALUE#/g, value);
+	}
+
+	function _replaceDateFormat(match, matchFull)
+	{
+		if (dateFormats[match])
+			return dateFormats[match]();
+		else
+			return matchFull;
+	}
+
+	function intval(number)
+	{
+		return number >= 0 ? Math.floor(number) : Math.ceil(number);
+	}
+};
+
+BX.date.convertBitrixFormat = function(format)
+{
+	if (!BX.type.isNotEmptyString(format))
+		return "";
+
+	return format.replace("YYYY", "Y")	// 1999
+				 .replace("MMMM", "F")	// January - December
+				 .replace("MM", "m")	// 01 - 12
+				 .replace("M", "M")	// Jan - Dec
+				 .replace("DD", "d")	// 01 - 31
+				 .replace("G", "g")	//  1 - 12
+				 .replace(/GG/i, "G")	//  0 - 23
+				 .replace("H", "h")	// 01 - 12
+				 .replace(/HH/i, "H")	// 00 - 24
+				 .replace("MI", "i")	// 00 - 59
+				 .replace("SS", "s")	// 00 - 59
+				 .replace("TT", "A")	// AM - PM
+				 .replace("T", "a");	// am - pm
+};
+
+BX.date.convertToUTC = function(date)
+{
+	if (!BX.type.isDate(date))
+		return null;
+	return new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), date.getHours(), date.getMinutes(), date.getSeconds(), date.getMilliseconds()));
+};
+
+/*
+ function creates and returns Javascript Date() object from server timestamp regardless of local browser (system) timezone.
+ For example can be used to convert timestamp from some exact date on server to the JS Date object with the same value.
+
+ params: {
+ timestamp: timestamp in seconds
+ }
+ */
+BX.date.getNewDate = function(timestamp)
+{
+	return new Date(BX.date.getBrowserTimestamp(timestamp));
+};
+
+/*
+ function transforms server timestamp (in sec) to javascript timestamp (calculated depend on local browser timezone offset). Returns timestamp in milliseconds.
+ Also see BX.date.getNewDate description.
+
+ params: {
+ timestamp: timestamp in seconds
+ }
+ */
+BX.date.getBrowserTimestamp = function(timestamp)
+{
+	timestamp = parseInt(timestamp, 10);
+	var browserOffset = new Date(timestamp * 1000).getTimezoneOffset() * 60;
+	return (parseInt(timestamp, 10) + parseInt(BX.message('SERVER_TZ_OFFSET')) + browserOffset) * 1000;
+};
+
+/*
+ function transforms local browser timestamp (in ms) to server timestamp (calculated depend on local browser timezone offset). Returns timestamp in seconds.
+
+ params: {
+ timestamp: timestamp in milliseconds
+ }
+ */
+BX.date.getServerTimestamp = function(timestamp)
+{
+	timestamp = parseInt(timestamp, 10);
+	var browserOffset = new Date(timestamp).getTimezoneOffset() * 60;
+	return Math.round(timestamp / 1000 - (parseInt(BX.message('SERVER_TZ_OFFSET'), 10) + parseInt(browserOffset, 10)));
+};
+
+/************************************** calendar class **********************************/
+
+var obCalendarSingleton = null;
+
+/*
+params: {
+	node: bind element || document.body
+
+	value - start value in site format (using 'field' param if 'value' does not exist)
+	callback - date check handler. can return false to prevent calendar closing.
+	callback_after - another handler, called after date picking
+
+	field - field to read/write data
+
+	bTime = true - whether to enable time control
+	bHideTime = false - whether to hide time control by default
+
+	currentTime - current UTC time()
+
+}
+*/
+
+
+BX.calendar = function(params)
+{
+	return BX.calendar.get().Show(params);
+}
+
+BX.calendar.get = function()
+{
+	if (!obCalendarSingleton)
+		obCalendarSingleton = new BX.JCCalendar();
+
+	return obCalendarSingleton;
+}
+
+// simple func for compatibility with the oldies
+BX.calendar.InsertDaysBack = function(input, days)
+{
+	if (days != '')
+	{
+		var d = new Date();
+		if(days > 0)
+		{
+			d.setTime(d.valueOf() - days*86400000);
+		}
+
+		input.value = BX.date.format(BX.date.convertBitrixFormat(BX.message('FORMAT_DATE')), d, null);
+	}
+	else
+	{
+		input.value = '';
+	}
+}
+
+BX.calendar.ValueToString = function(value, bTime, bUTC)
+{
+	return BX.date.format(
+		BX.date.convertBitrixFormat(BX.message(bTime ? 'FORMAT_DATETIME' : 'FORMAT_DATE')),
+		value,
+		null,
+		!!bUTC
+	);
+}
+
+
+BX.CalendarPeriod =
+{
+	Init: function(inputFrom, inputTo, selPeriod)
+	{
+		if((inputFrom.value != "" || inputTo.value != "") && selPeriod.value == "")
+			selPeriod.value = "interval";
+
+		selPeriod.onchange();
+	},
+
+	ChangeDirectOpts: function(peroidValue, selPParent) // "week" || "others"
+	{
+		var selDirect = BX.findChild(selPParent, {'className':'adm-select adm-calendar-direction'}, true);
+
+		if(peroidValue == "week")
+		{
+			selDirect.options[0].text = BX.message('JSADM_CALEND_PREV_WEEK');
+			selDirect.options[1].text = BX.message('JSADM_CALEND_CURR_WEEK');
+			selDirect.options[2].text = BX.message('JSADM_CALEND_NEXT_WEEK');
+		}
+		else
+		{
+			selDirect.options[0].text = BX.message('JSADM_CALEND_PREV');
+			selDirect.options[1].text = BX.message('JSADM_CALEND_CURR');
+			selDirect.options[2].text = BX.message('JSADM_CALEND_NEXT');
+		}
+	},
+
+	SaveAndClearInput: function(oInput)
+	{
+		if(!window.SavedPeriodValues)
+			window.SavedPeriodValues = {};
+
+		window.SavedPeriodValues[oInput.id] = oInput.value;
+		oInput.value="";
+	},
+
+	RestoreInput: function(oInput)
+	{
+		if(!window.SavedPeriodValues || !window.SavedPeriodValues[oInput.id])
+			return;
+
+		oInput.value = window.SavedPeriodValues[oInput.id];
+		delete(window.SavedPeriodValues[oInput.id]);
+	},
+
+	OnChangeP: function(sel)
+	{
+		var selPParent = sel.parentNode.parentNode;
+		var bShowFrom = bShowTo = bShowDirect = bShowSeparate = false;
+
+		var inputFromWrap = BX.findChild(selPParent, {'className':'adm-input-wrap adm-calendar-inp adm-calendar-first'});
+		var inputToWrap = BX.findChild(selPParent, {'className':'adm-input-wrap adm-calendar-second'});
+		var selDirectWrap = BX.findChild(selPParent, {'className':'adm-select-wrap adm-calendar-direction'});
+		var separator = BX.findChild(selPParent, {'className':'adm-calendar-separate'});
+		var inputFrom = BX.findChild(selPParent, {'className':'adm-input adm-calendar-from'},true);
+		var inputTo = BX.findChild(selPParent, {'className':'adm-input adm-calendar-to'},true);
+
+		// define who must be shown
+		switch (sel.value)
+		{
+			case "day":
+			case "week":
+			case "month":
+			case "quarter":
+			case "year":
+				bShowDirect=true;
+				BX.CalendarPeriod.OnChangeD(selDirectWrap.children[0]);
+				break;
+
+			case "before":
+				bShowTo = true;
+				break;
+
+			case "after":
+				bShowFrom = true;
+				break;
+
+			case "exact":
+				bShowFrom= true;
+				break;
+
+			case "interval":
+				bShowFrom = bShowTo = bShowSeparate = true;
+				BX.CalendarPeriod.RestoreInput(inputFrom);
+				BX.CalendarPeriod.RestoreInput(inputTo);
+
+				break;
+
+			case "":
+				BX.CalendarPeriod.SaveAndClearInput(inputFrom);
+				BX.CalendarPeriod.SaveAndClearInput(inputTo);
+				break;
+
+			default:
+				break;
+
+		}
+
+		BX.CalendarPeriod.ChangeDirectOpts(sel.value, selPParent);
+
+		inputFromWrap.style.display = (bShowFrom? 'inline-block':'none');
+		inputToWrap.style.display = (bShowTo? 'inline-block':'none');
+		selDirectWrap.style.display = (bShowDirect? 'inline-block':'none');
+		separator.style.display = (bShowSeparate? 'inline-block':'none');
+	},
+
+
+	OnChangeD: function(sel)
+	{
+		var selPParent = sel.parentNode.parentNode;
+		var inputFrom = BX.findChild(selPParent, {'className':'adm-input adm-calendar-from'},true);
+		var inputTo = BX.findChild(selPParent, {'className':'adm-input adm-calendar-to'},true);
+		var selPeriod = BX.findChild(selPParent, {'className':'adm-select adm-calendar-period'},true);
+
+		var offset=0;
+
+		switch (sel.value)
+		{
+			case "previous":
+				offset = -1;
+				break;
+
+			case "next":
+				offset = 1;
+				break;
+
+			case "current":
+			default:
+				break;
+
+		}
+
+		var from = false;
+		var to = false;
+
+		var today = new Date();
+		var year = today.getFullYear();
+		var month = today.getMonth();
+		var day = today.getDate();
+		var dayW = today.getDay();
+
+		if (dayW == 0)
+				dayW = 7;
+
+		switch (selPeriod.value)
+		{
+			case "day":
+				from = new Date(year, month, day+offset, 0, 0, 0);
+				to = new Date(year, month, day+offset, 23, 59, 59);
+				break;
+
+			case "week":
+				from = new Date(year, month, day-dayW+1+offset*7, 0, 0, 0);
+				to = new Date(year, month, day+(7-dayW)+offset*7, 23, 59, 59);
+				break;
+
+			case "month":
+				from = new Date(year, month+offset, 1, 0, 0, 0);
+				to = new Date(year, month+1+offset, 0, 23, 59, 59);
+				break;
+
+			case "quarter":
+				var quarterNum = Math.floor((month/3))+offset;
+				from = new Date(year, 3*(quarterNum), 1, 0, 0, 0);
+				to = new Date(year, 3*(quarterNum+1), 0, 23, 59, 59);
+				break;
+
+			case "year":
+				from = new Date(year+offset, 0, 1, 0, 0, 0);
+				to = new Date(year+1+offset, 0, 0, 23, 59, 59);
+				break;
+
+			default:
+				break;
+		}
+
+		var format = window[inputFrom.name+"_bTime"] ? BX.message('FORMAT_DATETIME') : BX.message('FORMAT_DATE');
+
+		if(from)
+		{
+			inputFrom.value = BX.formatDate(from, format);
+			BX.addClass(inputFrom,"adm-calendar-inp-setted");
+		}
+
+		if(to)
+		{
+			inputTo.value = BX.formatDate(to, format);
+			BX.addClass(inputTo,"adm-calendar-inp-setted");
+		}
+	}
+}
+
+
+BX.JCCalendar = function()
+{
+	this.params = {};
+
+	this.bAmPm = BX.isAmPmMode();
+
+	this.popup = null;
+	this.popup_month = null;
+	this.popup_year = null;
+
+	this.value = null;
+
+	this.control_id = Math.random();
+
+	this._layers = {};
+	this._current_layer = null;
+
+	this.DIV = null;
+	this.PARTS = {};
+
+	this.weekStart = 0;
+	this.numRows = 6;
+
+	this._create = function(params)
+	{
+		this.popup = new BX.PopupWindow('calendar_popup_' + this.control_id, params.node, {
+			closeByEsc: true,
+			autoHide: false,
+			content: this._get_content(),
+			zIndex: 3000,
+			bindOptions: {forceBindPosition: true}
+		});
+
+		BX.bind(this.popup.popupContainer, 'click', this.popup.cancelBubble);
+	};
+
+	this._auto_hide_disable = function()
+	{
+		BX.unbind(document, 'click', BX.proxy(this._auto_hide, this));
+	}
+
+	this._auto_hide_enable = function()
+	{
+		BX.bind(document, 'click', BX.proxy(this._auto_hide, this));
+	}
+
+	this._auto_hide = function(e)
+	{
+		this._auto_hide_disable();
+		this.popup.close();
+	}
+
+	this._get_content = function()
+	{
+		var _layer_onclick = BX.delegate(function(e) {
+			e = e||window.event;
+			this.SetDate(new Date(parseInt(BX.proxy_context.getAttribute('data-date'))), e.type=='dblclick')
+		}, this);
+
+		this.DIV = BX.create('DIV', {
+			props: {className: 'bx-calendar'},
+			children: [
+				BX.create('DIV', {
+					props: {
+						className: 'bx-calendar-header'
+					},
+					children: [
+						BX.create('A', {
+							attrs: {href: 'javascript:void(0)'},
+							props: {className: 'bx-calendar-left-arrow'},
+							events: {click: BX.proxy(this._prev, this)}
+						}),
+
+						BX.create('SPAN', {
+							props: {className: 'bx-calendar-header-content'},
+							children: [
+								(this.PARTS.MONTH = BX.create('A', {
+									attrs: {href: 'javascript:void(0)'},
+									props: {className: 'bx-calendar-top-month'},
+									events: {click: BX.proxy(this._menu_month, this)}
+								})),
+
+								(this.PARTS.YEAR = BX.create('A', {
+									attrs: {href: 'javascript:void(0)'},
+									props: {className: 'bx-calendar-top-year'},
+									events: {click: BX.proxy(this._menu_year, this)}
+								}))
+							]
+						}),
+
+						BX.create('A', {
+							attrs: {href: 'javascript:void(0)'},
+							props: {className: 'bx-calendar-right-arrow'},
+							events: {click: BX.proxy(this._next, this)}
+						})
+					]
+				}),
+
+				(this.PARTS.WEEK = BX.create('DIV', {
+					props: {
+						className: 'bx-calendar-name-day-wrap'
+					}
+				})),
+
+				(this.PARTS.LAYERS = BX.create('DIV', {
+					props: {
+						className: 'bx-calendar-cell-block'
+					},
+					events: {
+						click: BX.delegateEvent({className: 'bx-calendar-cell'}, _layer_onclick),
+						dblclick: BX.delegateEvent({className: 'bx-calendar-cell'}, _layer_onclick)
+					}
+				})),
+
+				(this.PARTS.TIME = BX.create('DIV', {
+					props: {
+						className: 'bx-calendar-set-time-wrap'
+					},
+					events: {
+						click: BX.delegateEvent(
+							{attr: 'data-action'},
+							BX.delegate(this._time_actions, this)
+						)
+					},
+					html: '<a href="javascript:void(0)" data-action="time_show" class="bx-calendar-set-time"><i></i>'+BX.message('CAL_TIME_SET')+'</a><div class="bx-calendar-form-block"><span class="bx-calendar-form-text">'+BX.message('CAL_TIME')+'</span><span class="bx-calendar-form"><input type="text" class="bx-calendar-form-input" maxwidth="2" onkeyup="BX.calendar.get()._check_time()" /><span class="bx-calendar-form-separator"></span><input type="text" class="bx-calendar-form-input" maxwidth="2" onkeyup="BX.calendar.get()._check_time()" />'+(this.bAmPm?'<span class="bx-calendar-AM-PM-block"><span class="bx-calendar-AM-PM-text" data-action="time_ampm"></span><span class="bx-calendar-form-arrow-r"><a href="javascript:void(0)" class="bx-calendar-form-arrow-top" data-action="time_ampm_up"><i></i></a><a href="javascript:void(0)" class="bx-calendar-form-arrow-bottom" data-action="time_ampm_down"><i></i></a></span></span>':'')+'</span><a href="javascript:void(0)" data-action="time_hide" class="bx-calendar-form-close"><i></i></a></div>'
+				})),
+
+				BX.create('DIV', {
+					props: {className: 'bx-calendar-button-block'},
+					events: {
+						click: BX.delegateEvent(
+							{attr: 'data-action'},
+							BX.delegate(this._button_actions, this)
+						)
+					},
+					html: '<a href="javascript:void(0)" class="bx-calendar-button bx-calendar-button-select" data-action="submit"><span class="bx-calendar-button-left"></span><span class="bx-calendar-button-text">'+BX.message('CAL_BUTTON')+'</span><span class="bx-calendar-button-right"></span></a><a href="javascript:void(0)" class="bx-calendar-button bx-calendar-button-cancel" data-action="cancel"><span class="bx-calendar-button-left"></span><span class="bx-calendar-button-text">'+BX.message('JS_CORE_WINDOW_CLOSE')+'</span><span class="bx-calendar-button-right"></span></a>'
+				})
+			]
+		});
+
+		this.PARTS.TIME_INPUT_H = BX.findChild(this.PARTS.TIME, {tag: 'INPUT'}, true);
+		this.PARTS.TIME_INPUT_M = this.PARTS.TIME_INPUT_H.nextSibling.nextSibling;
+
+		if (this.bAmPm)
+			this.PARTS.TIME_AMPM = this.PARTS.TIME_INPUT_M.nextSibling.firstChild;
+
+		var spinner = (new BX.JCSpinner({
+			input: this.PARTS.TIME_INPUT_H,
+			callback_change: BX.proxy(this._check_time, this),
+			bSaveValue: false
+		})).Show();
+		spinner.className = 'bx-calendar-form-arrow-l';
+		this.PARTS.TIME_INPUT_H.parentNode.insertBefore(spinner, this.PARTS.TIME_INPUT_H);
+
+		spinner = (new BX.JCSpinner({
+			input: this.PARTS.TIME_INPUT_M,
+			callback_change: BX.proxy(this._check_time, this),
+			bSaveValue: true
+		})).Show();
+		spinner.className = 'bx-calendar-form-arrow-r';
+		if (!this.PARTS.TIME_INPUT_M.nextSibling)
+			this.PARTS.TIME_INPUT_M.parentNode.appendChild(spinner);
+		else
+			this.PARTS.TIME_INPUT_M.parentNode.insertBefore(spinner, this.PARTS.TIME_INPUT_M.nextSibling);
+
+		for (var i = 0; i < 7; i++)
+		{
+			this.PARTS.WEEK.appendChild(BX.create('SPAN', {
+				props: {
+					className: 'bx-calendar-name-day'
+				},
+				text: BX.message('DOW_' + ((i + this.weekStart) % 7))
+			}));
+		}
+
+		return this.DIV;
+	};
+
+	this._time_actions = function()
+	{
+		var v;
+		switch (BX.proxy_context.getAttribute('data-action'))
+		{
+			case 'time_show':
+				BX.addClass(this.PARTS.TIME, 'bx-calendar-set-time-opened');
+				this.popup.adjustPosition();
+			break;
+			case 'time_hide':
+				BX.removeClass(this.PARTS.TIME, 'bx-calendar-set-time-opened');
+				this.popup.adjustPosition();
+			break;
+			case 'time_ampm':
+				this.PARTS.TIME_AMPM.innerHTML = this.PARTS.TIME_AMPM.innerHTML == 'AM' ? 'PM' : 'AM';
+			break;
+			case 'time_ampm_up':
+				this._check_time({bSaveValue: false}, null, 12);
+				return;
+			break;
+			case 'time_ampm_down':
+				this._check_time({bSaveValue: false}, null, -12);
+				return;
+			break;
+		}
+
+		this._check_time();
+	};
+
+	this._button_actions = function()
+	{
+		switch (BX.proxy_context.getAttribute('data-action'))
+		{
+			case 'submit':
+				this.SaveValue();
+			break;
+			case 'cancel':
+				this.Close();
+			break;
+		}
+	};
+
+	this._check_time = function(params, value, direction)
+	{
+		var h = parseInt(this.PARTS.TIME_INPUT_H.value.substring(0,5),10)||0,
+			m = parseInt(this.PARTS.TIME_INPUT_M.value.substring(0,5),10)||0,
+			bChanged = false;
+
+		if (!!params && !params.bSaveValue)
+		{
+			this.value.setHours(this.value.getHours() + direction);
+		}
+		else if (!isNaN(h))
+		{
+			if (this.bAmPm)
+			{
+				if (h != 12 && this.PARTS.TIME_AMPM.innerHTML == 'PM')
+				{
+					h += 12;
+				}
+			}
+
+			bChanged = true;
+			this.value.setHours(h % 24);
+		}
+
+		if (!isNaN(m))
+		{
+			bChanged = true;
+			this.value.setMinutes(m % 60);
+		}
+
+		if (bChanged)
+		{
+			this.SetValue(this.value);
+		}
+	};
+
+	this._set_layer = function()
+	{
+		var layerId = parseInt(this.value.getFullYear() + '' + BX.util.str_pad_left(this.value.getMonth()+'', 2, "0"));
+
+		if (!this._layers[layerId])
+		{
+			this._layers[layerId] = this._create_layer();
+			this._layers[layerId].BXLAYERID = layerId;
+		}
+
+		if (this._current_layer)
+		{
+			var v = new Date(this.value.valueOf());
+			v.setHours(0); v.setMinutes(0);
+
+			var cur_value = BX.findChild(this._layers[layerId], {
+					tag: 'A',
+					className: 'bx-calendar-active'
+				}, true),
+				new_value = BX.findChild(this._layers[layerId], {
+					tag: 'A',
+					attr: {
+						'data-date' : v.valueOf() + ''
+					}
+				}, true);
+
+			if (cur_value)
+			{
+				BX.removeClass(cur_value, 'bx-calendar-active');
+			}
+
+			if (new_value)
+			{
+				BX.addClass(new_value, 'bx-calendar-active');
+			}
+
+			this._replace_layer(this._current_layer, this._layers[layerId]);
+		}
+		else
+		{
+			this.PARTS.LAYERS.appendChild(this._layers[layerId]);
+		}
+
+		this._current_layer = this._layers[layerId];
+	};
+
+	this._replace_layer = function(old_layer, new_layer)
+	{
+		if (old_layer != new_layer)
+		{
+			if (!BX.browser.IsIE() || BX.browser.IsDoctype())
+			{
+				var dir = old_layer.BXLAYERID > new_layer.BXLAYERID ? 1 : -1;
+
+				var old_top = 0;
+					new_top = -dir * old_layer.offsetHeight;
+
+				old_layer.style.position = 'relative';
+				old_layer.style.top = "0px";
+				old_layer.style.zIndex = 5;
+
+				new_layer.style.position = 'absolute';
+				new_layer.style.top = new_top + 'px';
+				new_layer.style.zIndex = 6;
+
+				this.PARTS.LAYERS.appendChild(new_layer);
+
+				var delta = 15;
+
+				var f
+				(f = function() {
+					new_top += dir * delta;
+					old_top += dir * delta;
+
+					if (dir * new_top < 0)
+					{
+						old_layer.style.top = old_top + 'px';
+						new_layer.style.top = new_top + 'px';
+						setTimeout(f, 10);
+					}
+					else
+					{
+						old_layer.parentNode.removeChild(old_layer);
+
+						new_layer.style.top = "0px";
+						new_layer.style.position = 'static';
+						new_layer.style.zIndex = 0;
+					}
+				})();
+			}
+			else
+			{
+				this.PARTS.LAYERS.replaceChild(new_layer, old_layer);
+			}
+		}
+	};
+
+	this._create_layer = function()
+	{
+		var l = BX.create('DIV', {
+			props: {
+				className: 'bx-calendar-layer'
+			}
+		});
+
+		var month_start = new Date(this.value);
+		month_start.setHours(0);
+		month_start.setMinutes(0);
+
+		month_start.setDate(1);
+
+		if (month_start.getDay() != this.weekStart)
+		{
+			var d = month_start.getDay() - this.weekStart;
+			d += d < 0 ? 7 : 0;
+			month_start.setDate(month_start.getDate()-d);
+		}
+
+		var cur_month = this.value.getMonth(),
+			cur_day = this.value.getDate(),
+			s = '';
+		for (var i = 0; i < this.numRows; i++)
+		{
+			s += '<div class="bx-calendar-range'
+				+(i == this.numRows-1 ? ' bx-calendar-range-noline' : '')
+				+'">';
+
+			for (var j = 0; j < 7; j++)
+			{
+				var d = month_start.getDate(),
+					wd = month_start.getDay(),
+					className = 'bx-calendar-cell';
+				if (cur_month != month_start.getMonth())
+					className += ' bx-calendar-date-hidden';
+				else if (cur_day == d)
+					className += ' bx-calendar-active';
+
+
+				if (wd == 0 || wd == 6)
+					className += ' bx-calendar-weekend';
+
+				s += '<a href="javascript:void(0)" class="'+className+'" data-date="' + month_start.valueOf() + '">' + d + '</a>';
+
+				month_start.setDate(month_start.getDate()+1);
+			}
+			s += '</div>';
+		}
+
+		l.innerHTML = s;
+
+		return l;
+	}
+
+	this._prev = function()
+	{
+		this.SetMonth(this.value.getMonth()-1);
+	};
+
+	this._next = function()
+	{
+		this.SetMonth(this.value.getMonth()+1);
+	};
+
+	this._menu_month_content = function()
+	{
+		var months = '', cur_month = this.value.getMonth(), i;
+		for (i=0; i<12; i++)
+		{
+			months += '<a href="javascript:void(0)" class="bx-calendar-month'+(i == cur_month ? ' bx-calendar-month-active' : '')+'" onclick="BX.calendar.get().SetMonth('+i+')">'+BX.message('MONTH_' + (i+1))+'</a>';
+		}
+
+		return '<div class="bx-calendar-month-popup"><div class="bx-calendar-month-title" onclick="BX.calendar.get().popup_month.close();">'+BX.message('MONTH_' + (this.value.getMonth()+1))+'</div><div class="bx-calendar-month-content">'+months+'</div></div>';
+	};
+
+	this._menu_month = function()
+	{
+		if (!this.popup_month)
+		{
+			this.popup_month = BX.PopupWindowManager.create(
+				'calendar_popup_month_' + this.control_id, this.PARTS.MONTH,
+				{
+					content: this._menu_month_content(),
+					zIndex: 3001,
+					closeByEsc: true,
+					autoHide: true,
+					offsetTop: -29,
+					offsetLeft: -1
+				}
+			);
+
+			this.popup_month.BXMONTH = this.value.getMonth();
+		}
+		else if (this.popup_month.BXMONTH != this.value.getMonth())
+		{
+			this.popup_month.setContent(this._menu_month_content());
+			this.popup_month.BXMONTH = this.value.getMonth();
+		}
+
+		this.popup_month.show();
+	};
+
+	this._menu_year_content = function()
+	{
+		var s = '<div class="bx-calendar-year-popup"><div class="bx-calendar-year-title" onclick="BX.calendar.get().popup_year.close();">'+this.value.getFullYear()+'</div><div class="bx-calendar-year-content" id="bx-calendar-year-content">'
+
+			for (var i=-3; i <= 3; i++)
+			{
+				s += '<a href="javascript:void(0)" class="bx-calendar-year-number'+(i==0?' bx-calendar-year-active':'')+'" onclick="BX.calendar.get().SetYear('+(this.value.getFullYear()-i)+')">'+(this.value.getFullYear()-i)+'</a>'
+			}
+
+			s += '</div><input type="text" class="bx-calendar-year-input" onkeyup="if(this.value>=1900&&this.value<=2100)BX.calendar.get().SetYear(this.value);" maxlength="4" /></div>';
+
+		return s;
+	};
+
+	this._menu_year = function()
+	{
+		if (!this.popup_year)
+		{
+			this.popup_year = BX.PopupWindowManager.create(
+				'calendar_popup_year_' + this.control_id, this.PARTS.YEAR,
+				{
+					content: this._menu_year_content(),
+					zIndex: 3001,
+					closeByEsc: true,
+					autoHide: true,
+					offsetTop: -29,
+					offsetLeft: -1
+				}
+			);
+
+			this.popup_year.BXYEAR = this.value.getFullYear();
+		}
+		else if (this.popup_year.BXYEAR != this.value.getFullYear())
+		{
+			this.popup_year.setContent(this._menu_year_content());
+			this.popup_year.BXYEAR = this.value.getFullYear();
+		}
+
+		this.popup_year.show();
+	};
+
+	this._check_date = function(v)
+	{
+		if (BX.type.isString(v))
+			v = BX.parseDate(v);
+
+		if (!BX.type.isDate(v) || isNaN(v.valueOf()))
+		{
+			v = new Date();
+			if (this.params.bHideTime)
+			{
+				v.setHours(0);
+				v.setMinutes(0);
+			}
+		}
+
+		//v = BX.date.convertToUTC(v);
+		v.setMilliseconds(0);
+		v.setSeconds(0);
+
+		v.BXCHECKED = true;
+
+		return v;
+	};
+};
+
+BX.JCCalendar.prototype.Show = function(params)
+{
+	if (!BX.isReady)
+	{
+		BX.ready(BX.delegate(function() {this.Show(params)}, this));
+		return;
+	}
+
+	params.node = params.node||document.body;
+
+	if (BX.type.isNotEmptyString(params.node))
+	{
+		var n = BX(params.node);
+		if (!n)
+		{
+			n = document.getElementsByName(params.node);
+			if (n && n.length > 0)
+			{
+				n = n[0]
+			}
+		}
+		params.node = n;
+	}
+
+	if (!params.node)
+		return;
+
+	if (!!params.field)
+	{
+		if (BX.type.isString(params.field))
+		{
+			var n = BX(params.field);
+			if (!!n)
+			{
+				params.field = n;
+			}
+			else
+			{
+				if (params.form)
+				{
+					if (BX.type.isString(params.form))
+					{
+						params.form = document.forms[params.form];
+					}
+				}
+
+				if (BX.type.isDomNode(params.form) && !!params.form[params.field])
+				{
+					params.field = params.form[params.field];
+				}
+				else
+				{
+					var n = document.getElementsByName(params.field);
+					if (n && n.length > 0)
+					{
+						n = n[0];
+						params.field = n;
+					}
+				}
+			}
+
+			if (BX.type.isString(params.field))
+			{
+				params.field = BX(params.field);
+			}
+		}
+	}
+
+	var bShow = !this.popup || !this.popup.isShown() || this.params.node != params.node;
+
+	this.params = params;
+
+	this.params.bTime = typeof this.params.bTime == 'undefined' ? true : !!this.params.bTime;
+	this.params.bHideTime = typeof this.params.bHideTime == 'undefined' ? true : !!this.params.bHideTime;
+
+	this.weekStart = parseInt(this.params.weekStart || this.params.weekStart || BX.message('WEEK_START'));
+	if (isNaN(this.weekStart))
+		this.weekStart = 1;
+
+	if (!this.popup)
+	{
+		this._create(this.params);
+	}
+	else
+	{
+		this.popup.setBindElement(this.params.node);
+	}
+
+	var bHideTime = !!this.params.bHideTime;
+	if (this.params.value)
+	{
+		this.SetValue(this.params.value);
+		bHideTime = this.value.getHours() <= 0 && this.value.getMinutes() <= 0;
+	}
+	else if (this.params.field)
+	{
+		this.SetValue(this.params.field.value);
+		bHideTime = this.value.getHours() <= 0 && this.value.getMinutes() <= 0;
+	}
+	else if (!!this.params.currentTime)
+	{
+		this.SetValue(this.params.currentTime);
+	}
+	else
+	{
+		this.SetValue(new Date());
+	}
+
+	if (!!this.params.bTime)
+		BX.removeClass(this.DIV, 'bx-calendar-time-disabled');
+	else
+		BX.addClass(this.DIV, 'bx-calendar-time-disabled');
+
+	if (!!bHideTime)
+		BX.removeClass(this.PARTS.TIME, 'bx-calendar-set-time-opened');
+	else
+		BX.addClass(this.PARTS.TIME, 'bx-calendar-set-time-opened');
+
+	if (bShow)
+	{
+		this._auto_hide_disable();
+		this.popup.show();
+		setTimeout(BX.proxy(this._auto_hide_enable, this))
+	}
+
+	params.node.blur();
+
+	return this;
+};
+
+BX.JCCalendar.prototype.SetDay = function(d)
+{
+	this.value.setDate(d);
+	return this.SetValue(this.value);
+};
+
+BX.JCCalendar.prototype.SetMonth = function(m)
+{
+	if (this.popup_month)
+		this.popup_month.close();
+
+	this.value.setMonth(m);
+
+	if(m < 0)
+		m += 12;
+	else if (m >= 12)
+		m -= 12;
+
+	while(this.value.getMonth(m) > m)
+	{
+		this.value.setDate(this.value.getDate()-1);
+	}
+
+	return this.SetValue(this.value);
+};
+
+BX.JCCalendar.prototype.SetYear = function(y)
+{
+	if (this.popup_year)
+		this.popup_year.close();
+	this.value.setFullYear(y);
+	return this.SetValue(this.value);
+};
+
+BX.JCCalendar.prototype.SetDate = function(v, bSet)
+{
+	v = this._check_date(v);
+	v.setHours(this.value.getHours());
+	v.setMinutes(this.value.getMinutes());
+	v.setSeconds(this.value.getSeconds());
+
+	if (this.params.bTime && !bSet)
+	{
+		return this.SetValue(v);
+	}
+	else
+	{
+		this.SetValue(v);
+		this.SaveValue();
+	}
+};
+
+BX.JCCalendar.prototype.SetValue = function(v)
+{
+	this.value = (v && v.BXCHECKED) ? v : this._check_date(v);
+
+	this.PARTS.MONTH.innerHTML = BX.message('MONTH_' + (this.value.getMonth()+1));
+	this.PARTS.YEAR.innerHTML = this.value.getFullYear();
+
+	if (!!this.params.bTime)
+	{
+		var h = this.value.getHours();
+		if (this.bAmPm)
+		{
+			if (h >= 12)
+			{
+				this.PARTS.TIME_AMPM.innerHTML = 'PM';
+
+				if (h != 12)
+					h -= 12;
+			}
+			else
+			{
+				this.PARTS.TIME_AMPM.innerHTML = 'AM'
+
+				if (h == 0)
+					h = 12;
+			}
+		}
+
+		this.PARTS.TIME_INPUT_H.value = BX.util.str_pad_left(h.toString(), 2, "0");
+		this.PARTS.TIME_INPUT_M.value = BX.util.str_pad_left(this.value.getMinutes().toString(), 2, "0");
+	}
+
+	this._set_layer();
+
+	return this;
+};
+
+BX.JCCalendar.prototype.SaveValue = function()
+{
+	if (this.popup_month)
+		this.popup_month.close();
+	if (this.popup_year)
+		this.popup_year.close();
+
+	var bSetValue = true;
+	if (!!this.params.callback)
+	{
+		var res = this.params.callback.apply(this, [this.value]);
+		if (res === false)
+			bSetValue = false;
+	}
+
+	if (bSetValue)
+	{
+		var bTime = !!this.params.bTime && BX.hasClass(this.PARTS.TIME, 'bx-calendar-set-time-opened');
+
+		if (this.params.field)
+		{
+			this.params.field.value = BX.calendar.ValueToString(this.value, bTime);
+			BX.fireEvent(this.params.field, 'change');
+		}
+
+		this.popup.close();
+
+		if (!!this.params.callback_after)
+		{
+			this.params.callback_after.apply(this, [this.value, bTime]);
+		}
+	}
+
+	return this;
+};
+
+BX.JCCalendar.prototype.Close = function()
+{
+	if (!!this.popup)
+		this.popup.close();
+
+	return this;
+};
+
+BX.JCSpinner = function(params)
+{
+	params = params || {};
+	this.params = {
+		input: params.input || null,
+
+		delta: params.delta || 1,
+
+		timeout_start: params.timeout_start || 1000,
+		timeout_cont: params.timeout_cont || 150,
+
+		callback_start: params.callback_start || null,
+		callback_change: params.callback_change || null,
+		callback_finish: params.callback_finish || null,
+
+		bSaveValue: typeof params.bSaveValue == 'undefined' ? !!params.input : !!params.bSaveValue
+	}
+
+	this.mousedown = false;
+	this.direction = 1;
+}
+
+BX.JCSpinner.prototype.Show = function()
+{
+	this.node = BX.create('span', {
+		events: {
+			mousedown: BX.delegateEvent(
+				{attr: 'data-dir'},
+				BX.delegate(this.Start, this)
+			)
+		},
+		html: '<a href="javascript:void(0)" class="bx-calendar-form-arrow bx-calendar-form-arrow-top" data-dir="1"><i></i></a><a href="javascript:void(0)" class="bx-calendar-form-arrow bx-calendar-form-arrow-bottom" data-dir="-1"><i></i></a>'
+	});
+	return this.node;
+}
+
+BX.JCSpinner.prototype.Start = function()
+{
+	this.mousedown = true;
+	this.direction = BX.proxy_context.getAttribute('data-dir') > 0 ? 1 : -1;
+	BX.bind(document, "mouseup", BX.proxy(this.MouseUp, this));
+	this.ChangeValue(true);
+}
+
+BX.JCSpinner.prototype.ChangeValue = function(bFirst)
+{
+	if(!this.mousedown)
+		return;
+
+	if (this.params.input)
+	{
+		var v = parseInt(this.params.input.value, 10) + this.params.delta * this.direction;
+
+		if (this.params.bSaveValue)
+			this.params.input.value = v;
+
+		if (!!bFirst && this.params.callback_start)
+			this.params.callback_start(this.params, v, this.direction);
+
+		if (this.params.callback_change)
+			this.params.callback_change(this.params, v, this.direction);
+
+		setTimeout(
+			BX.proxy(this.ChangeValue, this),
+			!!bFirst ? this.params.timeout_start : this.params.timeout_cont
+		);
+	}
+}
+
+BX.JCSpinner.prototype.MouseUp = function()
+{
+	this.mousedown = false;
+	BX.unbind(document, "mouseup", BX.proxy(this.MouseUp, this));
+
+	if (this.params.callback_finish)
+		this.params.callback_finish(this.params, this.params.input.value);
+}
+
+/**************** compatibility hacks ***************************/
+
+window.jsCalendar = {
+	Show: function(obj, field, fieldFrom, fieldTo, bTime, serverTime, form_name, bHideTimebar)
+	{
+		return BX.calendar({
+			node: obj, field: field, form: form_name, bTime: !!bTime, currentTime: serverTime, bHideTimebar: !!bHideTimebar
+		});
+	},
+
+	ValueToString: BX.calendar.ValueToString
+}
+
+
+/************ clock popup transferred from timeman **************/
+
+BX.CClockSelector = function(params)
+{
+	this.params = params;
+
+	this.params.popup_buttons = this.params.popup_buttons || [
+		new BX.PopupWindowButton({
+			text : BX.message('CAL_BUTTON'),
+			className : "popup-window-button-create",
+			events : {click : BX.proxy(this.setValue, this)}
+		})
+	];
+
+	this.isReady = false;
+
+	this.WND = new BX.PopupWindow(
+		this.params.popup_id || 'clock_selector_popup',
+		this.params.node,
+		this.params.popup_config || {
+			titleBar: {content: BX.create('SPAN', {text: BX.message('CAL_TIME')})},
+			offsetLeft: -45,
+			offsetTop: -135,
+			autoHide: true,
+			closeIcon: true,
+			closeByEsc: true,
+			zIndex: this.params.zIndex
+		}
+	);
+
+	this.SHOW = false;
+	BX.addCustomEvent(this.WND, "onPopupClose", BX.delegate(this.onPopupClose, this));
+
+	this.obClocks = {};
+	this.CLOCK_ID = this.params.clock_id || 'clock_selector';
+};
+
+BX.CClockSelector.prototype.Show = function()
+{
+	if (!this.isReady)
+	{
+		//BX.timeman.showWait(this.parent.DIV);
+
+		BX.addCustomEvent('onClockRegister', BX.proxy(this.onClockRegister, this));
+		return BX.ajax.get('/bitrix/tools/clock_selector.php', {start_time: this.params.start_time, clock_id: this.CLOCK_ID, sessid: BX.bitrix_sessid()}, BX.delegate(this.Ready, this));
+	}
+
+	this.WND.setButtons(this.params.popup_buttons);
+	this.WND.show();
+
+	this.SHOW = true;
+
+	if (window['bxClock_' + this.obClocks[this.CLOCK_ID]])
+	{
+		setTimeout("window['bxClock_" + this.obClocks[this.CLOCK_ID] + "'].CalculateCoordinates()", 40);
+	}
+
+	return true;
+};
+
+BX.CClockSelector.prototype.onClockRegister = function(obClocks)
+{
+	if (obClocks[this.CLOCK_ID])
+	{
+		this.obClocks[this.CLOCK_ID] = obClocks[this.CLOCK_ID];
+		BX.removeCustomEvent('onClockRegister', BX.proxy(this.onClockRegister, this));
+	}
+};
+
+BX.CClockSelector.prototype.Ready = function(data)
+{
+	this.content = this.CreateContent(data);
+	this.WND.setContent(this.content);
+
+	this.isReady = true;
+	//BX.timeman.closeWait();
+
+	setTimeout(BX.proxy(this.Show, this), 30);
+};
+
+BX.CClockSelector.prototype.CreateContent = function(data)
+{
+	return BX.create('DIV', {
+		events: {click: BX.PreventDefault},
+		html:
+			'<div class="bx-tm-popup-clock">' + data + '</div>'
+	});
+};
+
+BX.CClockSelector.prototype.setValue = function(e)
+{
+	if (this.params.callback)
+	{
+		var input = BX.findChild(this.content, {tagName: 'INPUT'}, true);
+		this.params.callback.apply(this.params.node, [input.value]);
+	}
+
+	return BX.PreventDefault(e);
+};
+
+BX.CClockSelector.prototype.closeWnd = function(e)
+{
+	this.WND.close();
+	return (e || window.event) ? BX.PreventDefault(e) : true;
+};
+
+BX.CClockSelector.prototype.setNode = function(node)
+{
+	this.WND.setBindElement(node);
+};
+
+BX.CClockSelector.prototype.setTime = function(timestamp)
+{
+	this.params.start_time = timestamp;
+	if (window['bxClock_' + this.obClocks[this.CLOCK_ID]])
+	{
+		window['bxClock_' +  this.obClocks[this.CLOCK_ID]].SetTime(parseInt(timestamp/3600), parseInt((timestamp%3600)/60));
+	}
+};
+
+BX.CClockSelector.prototype.setCallback = function(cb)
+{
+	this.params.callback = cb;
+};
+
+BX.CClockSelector.prototype.onPopupClose = function()
+{
+	this.SHOW = false;
+};
+
+})();
 /* End */
 ;

@@ -9,10 +9,17 @@ a{
     height: 100%;
     width: 100%;
 }*/
+
+div.LeftColumn {
+    float: left;
+    height: 100%;
+    width: 200px;
+}
+
 div.Menu {
     /*background-color: #D3C2A6;*/
     float: left;
-    height: 100%;
+    /*height: 100%;*/
     padding-left: 50px;
     width: 200px;
 }
@@ -58,7 +65,7 @@ p.Text, span, table, ul, ol, li{
     font-size: 16px;
     margin: 10px;
 }
-p.subHead, p.Text, span, table, a, ul, ol, li{
+p.subHead, p.Text, span, table, a, ul, ol, li, p, div{
     color: #7b6442;
     font-family: Georgia;
 }
@@ -71,6 +78,15 @@ p.subHead {
     font-weight: bold;
 }
 
-input[type="text"] {
+input[type="text"].Text {
     width: 400px;
+}
+
+div.Auth {
+    float: left;
+    margin: 30px;
+    margin-bottom: -10px;
+    width: 180px;
+    border-radius: 5px;
+    border: 1px solid #7b6442;
 }

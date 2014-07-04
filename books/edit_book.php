@@ -27,7 +27,7 @@ if (!empty($bookId)) {
 
     <form name="editTitle" action="" method="post">
         <div class="ListItem">
-            <p class='Text'><b>Название:</b> <input type="text" name="bookTitle" value="<?=$bookTitle?>">
+            <p class='Text'><b>Название:</b> <input type="text" name="bookTitle" value="<?=$bookTitle?>" class="Text">
             <input type="submit" name="editBookTitle" value="Сохранить"></p>
             <input type="hidden" name="bookId" value="<?=$bookId?>">
             <input type="hidden" name="oldTitle" value="<?=$bookTitle?>">

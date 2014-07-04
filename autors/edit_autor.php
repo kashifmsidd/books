@@ -28,7 +28,7 @@ if (!empty($autorId)) {
 
     <form name="editAutors" action="" method="post">
         <div class="ListItem">
-            <p class='Text'><b>Имя автора:</b> <input type="text" name="autorName" value="<?=$autorName?>"></p>
+            <p class='Text'><b>Имя автора:</b> <input type="text" name="autorName" value="<?=$autorName?>" class="Text"></p>
             <div style="padding: 10px"><input type="submit" name="edit" value="Сохранить">
             <input type="hidden" name="id" value="<?=$autorId?>"></div>
         </div>

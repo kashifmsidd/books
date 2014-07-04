@@ -1,0 +1,107 @@
+
+
+
+/* Start:/bitrix/components/bitrix/system.auth.form/templates/.default/style.css*/
+div.bx-system-auth-form span.bx-auth-secure {background-color:#FFFAE3; border:1px solid #DEDBC8; padding:2px; display:inline-block; vertical-align:bottom; margin-top:-1px;}
+div.bx-system-auth-form div.bx-auth-secure-icon {background-image:url('/bitrix/components/bitrix/system.auth.form/templates/.default/images/sec.png'); background-repeat:no-repeat; background-position:center; width:19px; height:18px;}
+div.bx-system-auth-form div.bx-auth-secure-unlock {background-image:url('/bitrix/components/bitrix/system.auth.form/templates/.default/images/sec-unlocked.png');}
+
+/* End */
+
+
+
+/* Start:/bitrix/templates/books_template/template_styles.css*/
+body {
+    background-color: #D3C2A6;
+    margin: 0;
+}
+a{
+    color: #7B6442;
+}
+/*.Center {
+    height: 100%;
+    width: 100%;
+}*/
+
+div.LeftColumn {
+    float: left;
+    height: 100%;
+    width: 200px;
+}
+
+div.Menu {
+    /*background-color: #D3C2A6;*/
+    float: left;
+    /*height: 100%;*/
+    padding-left: 50px;
+    width: 200px;
+}
+p.MenuActive {
+    font-weight: bold;
+}
+p.Menu {
+    font-weight: normal;
+}
+a.Closed {
+    text-decoration: line-through;
+}
+.Content {
+    padding: 0px 20px 0px 250px;
+}
+.Header {
+    /*background-color: #D3C2A6;*/
+}
+.Footer {
+    width: 100%;
+}
+p#headIndex{
+    color: #7B6442;
+    font-family: Georgia;
+    font-size: 36px;
+    /*margin-left: 40%;*/
+    padding: 50px 0 0 0;
+    /*width: 130px;*/
+}
+div.Text {
+    margin: 0;
+}
+/*p.Text:first-letter {
+    margin-left: 30px;
+}*/
+div.ListItem {
+    width: 100%;
+    border-radius: 5px;
+    border: 1px solid #7b6442;
+    margin-bottom: 20px;
+}
+p.Text, span, table, ul, ol, li{
+    font-size: 16px;
+    margin: 10px;
+}
+p.subHead, p.Text, span, table, a, ul, ol, li, p, div{
+    color: #7b6442;
+    font-family: Georgia;
+}
+
+p.subHead {
+    /*background-color: #D3C2A6;*/
+    font-size: 20px;
+    margin: 50px 10px 10px 10px;
+    margin-left: 50px;
+    font-weight: bold;
+}
+
+input[type="text"].Text {
+    width: 400px;
+}
+
+div.Auth {
+    float: left;
+    margin: 30px;
+    width: 150px;
+    border-radius: 5px;
+    border: 1px solid #7b6442;
+}
+/* End */
+/* /bitrix/components/bitrix/system.auth.form/templates/.default/style.css */
+/* /bitrix/templates/books_template/template_styles.css */

@@ -11,7 +11,7 @@ require("../block_funcs.php");
 
 <form name="autors" action="" method="post">
     <div class="ListItem">
-        <p class='Text'><b>Имя автора:</b> <input type="text" name="autorName"></p>
+        <p class='Text'><b>Имя автора:</b> <input type="text" name="autorName" class="Text"></p>
         <div style="padding: 10px"><input type="submit" name="addAutor" value="Добавить автора" onclick="autors.action='add_autor.php'">
         <input type="submit" name="searchAutor" value="Искать автора"></div>
     </div>

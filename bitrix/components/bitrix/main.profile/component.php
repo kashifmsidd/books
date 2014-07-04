@@ -49,18 +49,18 @@ if($_SERVER["REQUEST_METHOD"]=="POST" && ($_REQUEST["save"] <> '' || $_REQUEST["
 	
 		$arPERSONAL_PHOTO = $_FILES["PERSONAL_PHOTO"];
 		$arWORK_LOGO = $_FILES["WORK_LOGO"];
-	
+
 		$rsUser = CUser::GetByID($arResult["ID"]);
 		$arUser = $rsUser->Fetch();
 		if($arUser)
 		{
 			$arPERSONAL_PHOTO["old_file"] = $arUser["PERSONAL_PHOTO"];
 			$arPERSONAL_PHOTO["del"] = $_REQUEST["PERSONAL_PHOTO_del"];
-	
+
 			$arWORK_LOGO["old_file"] = $arUser["WORK_LOGO"];
 			$arWORK_LOGO["del"] = $_REQUEST["WORK_LOGO_del"];
 		}
-	
+
 		$arFields = array(
 			"NAME" => $_REQUEST["NAME"],
 			"LAST_NAME" => $_REQUEST["LAST_NAME"],

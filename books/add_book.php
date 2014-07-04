@@ -9,7 +9,7 @@ require($_SERVER["DOCUMENT_ROOT"]."/bitrix/header.php");
 
     <form name="addBook" action="" method="post">
         <div class="ListItem">
-            <p class='Text'><b>Название:</b> <input type="text" name="bookTitle"></p>
+            <p class='Text'><b>Название:</b> <input type="text" name="bookTitle" class="Text"></p>
             <p class='Text'><b>Количество авторов:</b> <select name="autorCount">
                 <?
                     for ($i = 0; $i < 6; $i++) {
